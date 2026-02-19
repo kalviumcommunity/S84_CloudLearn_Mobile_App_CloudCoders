@@ -69,3 +69,29 @@ Phase 3: Refine & Deploy (Days 16–19) - 🚀 Optimize database queries & index
 Phase 4: Showcase (Day 20) - 🎬 Live demonstration of real-time data sync
 
     📚 Documentation of Backend Architecture & Data Flow
+
+
+-------------------------------------------------------------
+
+MEMBER 3 — Backend & DevOps Engineer (Arman Singh)
+Responsibilities:
+Authentication & User Lifecycle: Managing user sign-up, password resets, and session persistence.
+Media & Asset Management: Handling image uploads (diagrams/notes) to Firebase Storage and generating download URLs.
+Backend Automation: Setting up GitHub Actions for CI/CD and managing the Firebase CLI for deployments.
+Offline Data Persistence: Ensuring the app works offline by configuring Firestore Local Persistence.
+Sprint Contribution (Member 3)
+Phase 1: Plan & Design (Days 1–5)
+Auth Flow: Map out the user journey from "Sign Up" to "Onboarding."
+Storage Structure: Define the folder structure in Firebase Storage (e.g., /users/{uid}/notes/diagrams/).
+CI/CD Setup: Initialize the GitHub repository with a basic workflow to check for code errors.
+Phase 2: Build & Integrate (Days 6–15)
+Auth Implementation: Code the Firebase Auth logic (Email/Password & Google Sign-in).
+Storage Services: Build a service in Dart to upload images and fetch their URLs for the Cloud Notes feature.
+Offline Support: Write logic to ensure that if a student takes a note in a "no-network" zone (like a basement), it syncs when they are back online.
+Phase 3: Refine & Deploy (Days 16–19)
+Performance Tuning: Monitor Firebase usage to ensure queries are fast and efficient.
+Automated Builds: Configure GitHub Actions to automatically build a new APK (Android app file) every time you push code to the firebases branch.
+Logging: Set up basic error logging to track if the app crashes during data sync.
+Phase 4: Showcase (Day 20)
+Deployment: Ensure the final version is deployed to Firebase Hosting or App Distribution.
+Documentation: Write the "Deployment Guide" and explain the CI/CD pipeline for the final report.
