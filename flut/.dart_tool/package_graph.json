@@ -1,14 +1,13 @@
 {
   "roots": [
-    "flut"
+    "cloud_learn"
   ],
   "packages": [
     {
-      "name": "flut",
+      "name": "cloud_learn",
       "version": "1.0.0+1",
       "dependencies": [
         "cloud_firestore",
-        "cupertino_icons",
         "firebase_auth",
         "firebase_core",
         "firebase_storage",
@@ -21,7 +20,7 @@
     },
     {
       "name": "flutter_lints",
-      "version": "6.0.0",
+      "version": "2.0.3",
       "dependencies": [
         "lints"
       ]
@@ -91,11 +90,6 @@
       ]
     },
     {
-      "name": "cupertino_icons",
-      "version": "1.0.8",
-      "dependencies": []
-    },
-    {
       "name": "flutter",
       "version": "0.0.0",
       "dependencies": [
@@ -109,7 +103,7 @@
     },
     {
       "name": "lints",
-      "version": "6.1.0",
+      "version": "2.1.1",
       "dependencies": []
     },
     {
