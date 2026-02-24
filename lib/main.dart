@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 // Import services
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
+import 'screens/auth_screen.dart';
 
 void main() async {
   // Ensure Flutter widgets are initialized
@@ -13,21 +14,15 @@ void main() async {
   // Initialize Firebase
   await Firebase.initializeApp();
   
-  runApp(const MyApp());
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'CloudLearn',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-      ),
-      home: const HomeScreen(),
+      title: 'Firebase Auth Demo',
+      home: AuthScreen(),
     );
   }
 }
