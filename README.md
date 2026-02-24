@@ -289,6 +289,75 @@ Future<void> deleteTask(String taskId) async {
       [Users] [Tasks] [Notes] Collections
 ```
 
+## 🔄 Persistent User Sessions and Auto-Login
+
+### Overview
+CloudLearn implements persistent user sessions using Firebase Authentication's `authStateChanges()` stream, ensuring users remain logged in across app restarts and device sessions without manual re-authentication.
+
+### Implementation Details
+
+**Auto-Login Flow in `lib/main.dart`:**
+```dart
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Firebase Auth Demo',
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (ctx, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasData) {
+            return HomeScreen();
+          }
+          return AuthScreen();
+        },
+      ),
+    );
+  }
+}
+```
+
+### How It Works
+1. **Session Persistence**: Firebase automatically manages user tokens and session data
+2. **Auto-Login**: On app launch, `authStateChanges()` checks for valid existing sessions
+3. **Seamless Navigation**: Authenticated users bypass login screen directly to HomeScreen
+4. **Logout Handling**: Clean sign-out clears session and redirects to AuthScreen
+
+### Key Features
+- ✅ Automatic detection of logged-in users
+- ✅ Skip login screen for authenticated users  
+- ✅ Redirect to login when session is invalid
+- ✅ Preserve login state after app restart
+- ✅ Clean logout functionality with logout button in AppBar
+
+### Firebase Session Management
+Firebase handles:
+- Secure token storage on device
+- Automatic token refresh in background
+- Session invalidation on password change or account deletion
+- Cross-device session synchronization
+
+### Testing Persistent Login
+1. Login → Verify HomeScreen appears
+2. Close app completely
+3. Reopen app → Should auto-navigate to HomeScreen
+4. Logout → Should redirect to AuthScreen
+5. Reopen → Should stay on AuthScreen
+
+### Why Persistent Login is Essential
+- **User Experience**: Eliminates repetitive logins, improving app usability
+- **Security**: Firebase manages secure token handling automatically
+- **Convenience**: Users can access app instantly without authentication friction
+
+### How Firebase Simplifies Session Handling
+- No manual SharedPreferences or local storage needed
+- Automatic background token refresh
+- Built-in session expiry and invalidation
+- Cross-platform consistency
+
 ## 🧪 Testing the Application
 
 ### Test Scenario 1: User Registration

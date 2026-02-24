@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -9,7 +8,6 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
-  final AuthService _authService = AuthService();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
@@ -32,7 +30,10 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                // Add login logic here using _authService
+                // TODO: Implement login logic
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Login functionality not implemented yet')),
+                );
               },
               child: const Text('Login'),
             ),
