@@ -505,6 +505,17 @@ service cloud.firestore {
 
 ## 👥 Team Responsibilities
 
+### MEMBER 1 — Flutter Frontend Engineer (Mayank Sharma)
+
+- Complete Flutter UI development
+- Responsive layout design
+- Navigation flow architecture
+- Form handling & validation
+- Firebase UI integration
+- UX polish & animations
+- Code refactoring into reusable widgets
+- Sprint Contribution Timeline:
+
 ### MEMBER 2 — Backend & Data Architect (Akanksha Kumari)
 - Firebase ecosystem initialization & environment config
 - Firestore NoSQL schema design & data modeling
