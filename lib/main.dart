@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Import services
 import 'services/firestore_service.dart';
-import 'screens/auth_screen.dart';
+import 'screens/get_started_screen.dart';
 
 void main() async {
   // Ensure Flutter widgets are initialized
@@ -31,7 +31,7 @@ class MyApp extends StatelessWidget {
           if (snapshot.hasData) {
             return HomeScreen();
           }
-          return AuthScreen();
+          return const GetStartedScreen();
         },
       ),
     );
