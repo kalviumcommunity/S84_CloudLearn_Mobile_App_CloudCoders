@@ -29,6 +29,14 @@ class StorageService {
     return uploadFile(imageFile, path);
   }
 
+  /// Upload a profile image
+  /// 
+  /// Stores image under users/{uid}/profile.jpg
+  Future<String> uploadProfileImage(String uid, File imageFile) async {
+    final path = 'users/$uid/profile.jpg';
+    return uploadFile(imageFile, path);
+  }
+
   /// Delete a file from Firebase Storage
   Future<void> deleteFile(String path) async {
     try {
