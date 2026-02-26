@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'profile_screen.dart';
 import 'map_screen.dart';
+import 'tasks_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -51,6 +52,21 @@ class HomeScreen extends StatelessWidget {
               label: const Text('Find Campus Events'),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const TasksScreen()),
+                );
+              },
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('View Learning Path'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                backgroundColor: Colors.white,
+                foregroundColor: const Color(0xFF7A5AF8),
               ),
             ),
           ],
