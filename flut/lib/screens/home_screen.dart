@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'profile_screen.dart';
+import 'map_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -39,6 +40,19 @@ class HomeScreen extends StatelessWidget {
             Text('Welcome, ${user?.displayName ?? "Learner"}!'),
             const SizedBox(height: 20),
             const Text('Your cloud journey starts here.'),
+            const SizedBox(height: 30),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const MapScreen()),
+                );
+              },
+              icon: const Icon(Icons.map_outlined),
+              label: const Text('Find Campus Events'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
           ],
         ),
       ),
