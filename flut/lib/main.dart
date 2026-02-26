@@ -1,21 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
-import 'screens/auth_screen.dart';
-import 'screens/home_screen.dart';
-import 'services/auth_service.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-/// Main entry point of the CloudLearn application
-/// Initializes Firebase before running the app
-void main() async {
-  // Ensure Flutter is initialized
+import 'features/auth/auth_choice_screen.dart';
+import 'features/auth/login_screen.dart';
+import 'features/auth/signup_screen.dart';
+import 'features/auth/welcome_screen.dart';
+import 'features/splash/splash_screen.dart';
+
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  
   runApp(const MyApp());
 }
 
@@ -24,31 +17,53 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'CloudLearn - Firebase Integration',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+    final baseTheme = ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFF7A5AF8),
       ),
-      // Check if user is authenticated and route accordingly
-      home: StreamBuilder(
-        stream: AuthService().authStateChanges,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(
-                child: CircularProgressIndicator(),
-              ),
-            );
-          }
-          
-          if (snapshot.hasData) {
-            return const HomeScreen();
-          }
-          
-          return const AuthScreen();
-        },
+    );
+
+    return MaterialApp(
+      title: 'CloudLearn',
+      debugShowCheckedModeBanner: false,
+      theme: baseTheme.copyWith(
+        textTheme: GoogleFonts.poppinsTextTheme(baseTheme.textTheme),
+        scaffoldBackgroundColor: Colors.transparent,
+        cardTheme: const CardThemeData(
+          elevation: 10,
+          shadowColor: Color(0x1F2F1F64),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(26)),
+          ),
+        ),
+      ),
+      routes: {
+        '/': (context) => const SplashScreen(),
+        '/welcome': (context) => const WelcomeScreen(),
+        '/auth-choice': (context) => const AuthChoiceScreen(),
+        '/login': (context) => const LoginScreen(),
+        '/signup': (context) => const SignupScreen(),
+      },
+      initialRoute: '/',
+      builder: (context, child) {
+        return Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFF4ECFF),
+                Color(0xFFE9DBFF),
+                Color(0xFFD8C5FF),
+              ],
+            ),
+          ),
+          child: child,
+        );
+      },
+      onUnknownRoute: (_) => MaterialPageRoute(
+        builder: (context) => const SplashScreen(),
       ),
     );
   }
