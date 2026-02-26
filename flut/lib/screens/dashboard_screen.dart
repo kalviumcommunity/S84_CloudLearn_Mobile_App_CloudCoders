@@ -19,16 +19,16 @@ class DashboardScreen extends StatelessWidget {
               'Welcome Back,',
               style: TextStyle(
                 fontSize: 20,
-                color: Colors.grey[600],
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
               ),
             ),
             const SizedBox(height: 8),
             Text(
               user?.displayName ?? "Learner",
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF2F1F64),
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
             const SizedBox(height: 40),
