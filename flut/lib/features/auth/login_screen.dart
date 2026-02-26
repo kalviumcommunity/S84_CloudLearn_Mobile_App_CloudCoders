@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'signup_screen.dart';
 import 'widgets/custom_text_field.dart';
 import 'widgets/primary_button.dart';
+import '../../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -43,16 +44,26 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     setState(() => _loading = true);
-    await Future<void>.delayed(const Duration(seconds: 1));
 
-    if (!mounted) {
-      return;
+    try {
+      await AuthService().signIn(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
+      if (mounted) {
+         // Optionally show success or let the stream handle navigation
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
-
-    setState(() => _loading = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Logged in successfully.')),
-    );
   }
 
   String? _validateEmail(String? value) {
