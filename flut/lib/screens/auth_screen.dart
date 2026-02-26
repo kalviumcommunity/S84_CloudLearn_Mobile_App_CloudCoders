@@ -29,8 +29,7 @@ class _AuthScreenState extends State<AuthScreen> {
               obscureText: true,
             ),
             ElevatedButton(
-              onPressed: () async {
-                // TODO: Implement login logic
+              onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Login functionality not implemented yet')),
                 );
