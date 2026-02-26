@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 
+import '../providers/theme_provider.dart';
 import '../features/auth/widgets/primary_button.dart';
 import '../services/auth_service.dart';
 import '../services/storage_service.dart';
@@ -144,7 +146,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
 
-            const SizedBox(height: 40),
+            const SizedBox(height: 30),
+
+            // Settings Section
+            Consumer<ThemeProvider>(
+              builder: (context, themeProvider, child) {
+                return SwitchListTile(
+                  title: const Text('Dark Mode'),
+                  value: themeProvider.isDarkMode,
+                  onChanged: (value) {
+                    themeProvider.toggleTheme(value);
+                  },
+                  secondary:  Icon(
+                    themeProvider.isDarkMode 
+                        ? Icons.dark_mode 
+                        : Icons.light_mode,
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 20),
             
             PrimaryButton(
               label: 'Log Out',
@@ -184,7 +206,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Text(
           label,
           style: TextStyle(
-            color: Colors.grey[600],
+            color: Theme.of(context).brightness == Brightness.dark 
+                ? Colors.grey[400] 
+                : Colors.grey[600],
           ),
         ),
       ],
