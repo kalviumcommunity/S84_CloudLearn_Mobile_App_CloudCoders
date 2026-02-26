@@ -11,6 +11,7 @@ import 'features/auth/welcome_screen.dart';
 import 'features/splash/splash_screen.dart';
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
+import 'providers/task_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +22,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => TaskProvider()),
       ],
       child: const MyApp(),
     ),
