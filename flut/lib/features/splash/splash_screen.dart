@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../shared/widgets/app_logo.dart';
 
-import '../auth/welcome_screen.dart';
+import '../auth/auth_wrapper.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -39,7 +39,7 @@ class _SplashScreenState extends State<SplashScreen>
         return;
       }
       Navigator.of(context).pushReplacement(
-        _fadeRoute(const WelcomeScreen()),
+        _fadeRoute(const AuthWrapper()),
       );
     });
   }

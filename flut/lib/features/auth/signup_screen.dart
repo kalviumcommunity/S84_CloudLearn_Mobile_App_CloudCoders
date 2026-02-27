@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'login_screen.dart';
 import 'widgets/auth_shell.dart';
+import '../../services/auth_service.dart';
 import 'widgets/custom_text_field.dart';
 import 'widgets/primary_button.dart';
 
@@ -178,25 +179,47 @@ class _SignupScreenState extends State<SignupScreen>
 
   Future<void> _submit() async {
     final validForm = _formKey.currentState!.validate();
-    final hasGoal = _learningGoal != null;
-    final hasLevel = _experienceLevel != null;
+    // Validate dropdowns too
+    if (_learningGoal == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a learning goal.')),
+      );
+      return;
+    }
+    if (_experienceLevel == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select your experience level.')),
+      );
+      return;
+    }
 
-    if (!validForm || !hasGoal || !hasLevel) {
-      setState(() {});
+    if (!validForm) {
       return;
     }
 
     setState(() => _loading = true);
-    await Future<void>.delayed(const Duration(milliseconds: 1200));
 
-    if (!mounted) {
-      return;
+    try {
+      await AuthService().signUp(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Account created successfully.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
-
-    setState(() => _loading = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Account created successfully.')),
-    );
   }
 
   @override
