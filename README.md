@@ -159,6 +159,52 @@ Future<User?> signUp(String email, String password) async {
 }
 ```
 
+
+### 📱 Persistent Sessions & Auto‑Login
+
+The app listens to Firebase Auth state changes and automatically routes users to the
+correct screen. This ensures that a logged‑in user stays signed in across restarts and
+only sees the authentication flow when required.
+
+We created an `AuthWrapper` widget that wraps the whole app content in a
+`StreamBuilder<User?>` connected to `AuthService().authStateChanges` (which proxies
+`FirebaseAuth.instance.authStateChanges()`). The builder shows a progress indicator
+while the stream is initializing, sends authenticated users to `HomeScreen`, and
+otherwise pushes them to the welcome/login flow.
+
+```dart
+return StreamBuilder<User?>(
+  stream: AuthService().authStateChanges,
+  builder: (ctx, snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (snapshot.hasData) {
+      return const HomeScreen();
+    }
+    return const WelcomeScreen();
+  },
+);
+```
+
+Because Firebase handles token persistence and refresh on the device, we don’t store
+anything manually — closing the app and reopening will automatically redirect a
+previously authenticated user straight to `HomeScreen`. Logging out via
+`FirebaseAuth.instance.signOut()` clears the session and causes the stream to emit
+`null`, sending the user back to the login/ welcome screens.
+
+Testing this behavior consists of:
+
+1. Sign in and observe that `HomeScreen` appears.
+2. Fully quit the app and relaunch; the app should skip the login screen and
+   land on `HomeScreen` immediately.
+3. Tap the logout button, confirm navigation to the auth flow.
+4. Restart the app again; the auth screen should remain (no auto‑login).
+
+---
+
 **Sign In:**
 ```dart
 Future<User?> signIn(String email, String password) async {

@@ -18,8 +18,8 @@ class HomeScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: Center(
-        child: Column(
+      body: const Center(
+        child: const Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: const [
             Text('Welcome to CloudLearn!'),
