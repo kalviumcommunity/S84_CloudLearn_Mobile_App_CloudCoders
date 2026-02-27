@@ -62,6 +62,7 @@ class MyApp extends StatelessWidget {
     final darkTheme = ThemeData.dark().copyWith(
       scaffoldBackgroundColor: const Color(0xFF121212), // Solid dark
       colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFF7C4DFF),
         seedColor: const Color(0xFF7A5AF8),
         brightness: Brightness.dark,
       ),
@@ -83,6 +84,25 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'CloudLearn',
       debugShowCheckedModeBanner: false,
+      theme: baseTheme.copyWith(
+        textTheme: GoogleFonts.poppinsTextTheme(baseTheme.textTheme),
+        scaffoldBackgroundColor: Colors.transparent,
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.85),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(22),
+            borderSide: BorderSide.none,
+          ),
+        ),
+        cardTheme: const CardThemeData(
+          elevation: 0,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(30)),
+          ),
+        ),
+      ),
       themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
       theme: lightTheme,
       darkTheme: darkTheme,

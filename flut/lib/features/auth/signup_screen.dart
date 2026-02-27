@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'login_screen.dart';
+import 'widgets/auth_shell.dart';
 import '../../services/auth_service.dart';
 import 'widgets/custom_text_field.dart';
 import 'widgets/primary_button.dart';
@@ -12,7 +13,8 @@ class SignupScreen extends StatefulWidget {
   State<SignupScreen> createState() => _SignupScreenState();
 }
 
-class _SignupScreenState extends State<SignupScreen> {
+class _SignupScreenState extends State<SignupScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -23,6 +25,7 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _obscureConfirmPassword = true;
   bool _loading = false;
   bool _visible = false;
+  late final AnimationController _entranceController;
 
   String? _learningGoal;
   String? _experienceLevel;
@@ -43,20 +46,38 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   void initState() {
     super.initState();
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+
+    _passwordController.addListener(_onPasswordInputsChanged);
+    _confirmPasswordController.addListener(_onPasswordInputsChanged);
+
     Future<void>.delayed(const Duration(milliseconds: 80), () {
       if (mounted) {
         setState(() => _visible = true);
+        _entranceController.forward();
       }
     });
   }
 
   @override
   void dispose() {
+    _passwordController.removeListener(_onPasswordInputsChanged);
+    _confirmPasswordController.removeListener(_onPasswordInputsChanged);
+    _entranceController.dispose();
     _fullNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  void _onPasswordInputsChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   String? _validateName(String? value) {
@@ -124,6 +145,11 @@ class _SignupScreenState extends State<SignupScreen> {
     }
 
     return score / 4;
+  }
+
+  bool get _passwordsMatch {
+    final confirm = _confirmPasswordController.text;
+    return confirm.isNotEmpty && confirm == _passwordController.text;
   }
 
   String get _strengthText {
@@ -200,172 +226,262 @@ class _SignupScreenState extends State<SignupScreen> {
   Widget build(BuildContext context) {
     final strength = _passwordStrength;
 
-    return Scaffold(
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final maxWidth = constraints.maxWidth > 480 ? 480.0 : constraints.maxWidth;
-            return Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: AnimatedOpacity(
-                  opacity: _visible ? 1 : 0,
-                  duration: const Duration(milliseconds: 450),
-                  curve: Curves.easeOut,
-                  child: SizedBox(
-                    width: maxWidth,
-                    child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const Text(
-                                'Create Account',
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF2F1F64),
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              CustomTextField(
-                                label: 'Full Name',
-                                controller: _fullNameController,
-                                validator: _validateName,
-                              ),
-                              const SizedBox(height: 14),
-                              CustomTextField(
-                                label: 'Email Address',
-                                controller: _emailController,
-                                keyboardType: TextInputType.emailAddress,
-                                validator: _validateEmail,
-                              ),
-                              const SizedBox(height: 14),
-                              CustomTextField(
-                                label: 'Create Password',
-                                controller: _passwordController,
-                                obscureText: _obscurePassword,
-                                validator: _validatePassword,
-                                onChanged: (_) => setState(() {}),
-                                suffixIcon: IconButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      _obscurePassword = !_obscurePassword;
-                                    });
-                                  },
-                                  icon: Icon(
-                                    _obscurePassword
-                                        ? Icons.visibility_off_rounded
-                                        : Icons.visibility_rounded,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: LinearProgressIndicator(
-                                  value: strength == 0 ? 0.02 : strength,
-                                  minHeight: 7,
-                                  valueColor: AlwaysStoppedAnimation<Color>(_strengthColor),
-                                  backgroundColor: const Color(0xFFECEAF2),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Password strength: $_strengthText',
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  color: _strengthColor,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              CustomTextField(
-                                label: 'Confirm Password',
-                                controller: _confirmPasswordController,
-                                obscureText: _obscureConfirmPassword,
-                                validator: _validateConfirmPassword,
-                                suffixIcon: IconButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      _obscureConfirmPassword =
-                                          !_obscureConfirmPassword;
-                                    });
-                                  },
-                                  icon: Icon(
-                                    _obscureConfirmPassword
-                                        ? Icons.visibility_off_rounded
-                                        : Icons.visibility_rounded,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              DropdownButtonFormField<String>(
-                                initialValue: _learningGoal,
-                                decoration: _dropdownDecoration('Learning Goal'),
-                                items: _learningGoals
-                                    .map(
-                                      (goal) => DropdownMenuItem<String>(
-                                        value: goal,
-                                        child: Text(goal),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (value) {
-                                  setState(() => _learningGoal = value);
-                                },
-                                validator: (value) =>
-                                    value == null ? 'Please select a learning goal.' : null,
-                              ),
-                              const SizedBox(height: 14),
-                              DropdownButtonFormField<String>(
-                                initialValue: _experienceLevel,
-                                decoration: _dropdownDecoration('Experience Level'),
-                                items: _experienceLevels
-                                    .map(
-                                      (level) => DropdownMenuItem<String>(
-                                        value: level,
-                                        child: Text(level),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (value) {
-                                  setState(() => _experienceLevel = value);
-                                },
-                                validator: (value) => value == null
-                                    ? 'Please select your experience level.'
-                                    : null,
-                              ),
-                              const SizedBox(height: 22),
-                              PrimaryButton(
-                                label: 'Create Account',
-                                loading: _loading,
-                                onPressed: _submit,
-                              ),
-                              const SizedBox(height: 10),
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).push(
-                                    _fadeRoute(const LoginScreen()),
-                                  );
-                                },
-                                child: const Text('Already have an account? Log In'),
-                              ),
-                            ],
-                          ),
+    return AuthShell(
+      child: AnimatedOpacity(
+        opacity: _visible ? 1 : 0,
+        duration: const Duration(milliseconds: 460),
+        curve: Curves.easeOutCubic,
+        child: AnimatedSlide(
+          duration: const Duration(milliseconds: 460),
+          curve: Curves.easeOutCubic,
+          offset: _visible ? Offset.zero : const Offset(0, 0.03),
+          child: GlassCard(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Create Account',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF291451),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Build your personalized cloud learning path.',
+                    style: TextStyle(
+                      color: const Color(0xFF291451).withValues(alpha: 0.6),
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  _staggered(
+                    index: 0,
+                    child: CustomTextField(
+                      label: 'Full Name',
+                      controller: _fullNameController,
+                      validator: _validateName,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _staggered(
+                    index: 1,
+                    child: CustomTextField(
+                      label: 'Email Address',
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      validator: _validateEmail,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _staggered(
+                    index: 2,
+                    child: CustomTextField(
+                      label: 'Create Password',
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      validator: _validatePassword,
+                      suffixIcon: IconButton(
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off_rounded
+                              : Icons.visibility_rounded,
                         ),
                       ),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 10),
+                  _staggered(
+                    index: 3,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TweenAnimationBuilder<double>(
+                          tween: Tween<double>(
+                            begin: 0,
+                            end: strength == 0 ? 0.03 : strength,
+                          ),
+                          duration: const Duration(milliseconds: 380),
+                          curve: Curves.easeOutCubic,
+                          builder: (context, value, _) {
+                            return ClipRRect(
+                              borderRadius: BorderRadius.circular(999),
+                              child: LinearProgressIndicator(
+                                value: value,
+                                minHeight: 8,
+                                valueColor: AlwaysStoppedAnimation<Color>(_strengthColor),
+                                backgroundColor: const Color(0xFFECEAF2),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 7),
+                        Text(
+                          'Password strength: $_strengthText',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: _strengthColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _staggered(
+                    index: 4,
+                    child: CustomTextField(
+                      label: 'Confirm Password',
+                      controller: _confirmPasswordController,
+                      obscureText: _obscureConfirmPassword,
+                      validator: _validateConfirmPassword,
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AnimatedScale(
+                            duration: const Duration(milliseconds: 260),
+                            curve: Curves.easeOutBack,
+                            scale: _passwordsMatch ? 1 : 0,
+                            child: AnimatedOpacity(
+                              duration: const Duration(milliseconds: 220),
+                              opacity: _passwordsMatch ? 1 : 0,
+                              child: const Padding(
+                                padding: EdgeInsets.only(right: 4),
+                                child: Icon(
+                                  Icons.check_circle_rounded,
+                                  size: 20,
+                                  color: Color(0xFF12B76A),
+                                ),
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () {
+                              setState(() {
+                                _obscureConfirmPassword = !_obscureConfirmPassword;
+                              });
+                            },
+                            icon: Icon(
+                              _obscureConfirmPassword
+                                  ? Icons.visibility_off_rounded
+                                  : Icons.visibility_rounded,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _staggered(
+                    index: 5,
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _learningGoal,
+                      decoration: _dropdownDecoration('Learning Goal'),
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF5F38CC)),
+                      dropdownColor: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      items: _learningGoals
+                          .map(
+                            (goal) => DropdownMenuItem<String>(
+                              value: goal,
+                              child: Text(goal),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        setState(() => _learningGoal = value);
+                      },
+                      validator: (value) =>
+                          value == null ? 'Please select a learning goal.' : null,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _staggered(
+                    index: 6,
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _experienceLevel,
+                      decoration: _dropdownDecoration('Experience Level'),
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF5F38CC)),
+                      dropdownColor: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      items: _experienceLevels
+                          .map(
+                            (level) => DropdownMenuItem<String>(
+                              value: level,
+                              child: Text(level),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        setState(() => _experienceLevel = value);
+                      },
+                      validator: (value) =>
+                          value == null ? 'Please select your experience level.' : null,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  _staggered(
+                    index: 7,
+                    child: PrimaryButton(
+                      label: 'Create Account',
+                      loading: _loading,
+                      elevated: true,
+                      onPressed: _submit,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        buildAuthRoute(const LoginScreen()),
+                      );
+                    },
+                    child: Text(
+                      'Already have an account? Log In',
+                      style: TextStyle(
+                        color: const Color(0xFF3D2082).withValues(alpha: 0.82),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            );
-          },
+            ),
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _staggered({required int index, required Widget child}) {
+    final start = 0.06 + (index * 0.08);
+    final end = (start + 0.24).clamp(0, 1);
+    final animation = CurvedAnimation(
+      parent: _entranceController,
+      curve: Interval(start, end.toDouble(), curve: Curves.easeOutCubic),
+    );
+
+    return AnimatedBuilder(
+      animation: animation,
+      child: child,
+      builder: (context, child) {
+        final value = animation.value;
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, (1 - value) * 14),
+            child: child,
+          ),
+        );
+      },
     );
   }
 
@@ -373,30 +489,20 @@ class _SignupScreenState extends State<SignupScreen> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      fillColor: Colors.white.withValues(alpha: 0.84),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide.none,
+        borderRadius: BorderRadius.circular(22),
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.65)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide.none,
+        borderRadius: BorderRadius.circular(22),
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.65)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: Color(0xFF7A5AF8), width: 1.4),
+        borderRadius: BorderRadius.circular(22),
+        borderSide: const BorderSide(color: Color(0xFF8D57FF), width: 1.4),
       ),
     );
   }
-}
-
-PageRouteBuilder<void> _fadeRoute(Widget page) {
-  return PageRouteBuilder<void>(
-    pageBuilder: (_, animation, __) => FadeTransition(
-      opacity: animation,
-      child: page,
-    ),
-    transitionDuration: const Duration(milliseconds: 320),
-  );
 }

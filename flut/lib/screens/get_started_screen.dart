@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'auth_screen.dart';
+import '../shared/widgets/app_logo.dart';
 
 class GetStartedScreen extends StatelessWidget {
   const GetStartedScreen({super.key});
@@ -13,14 +14,17 @@ class GetStartedScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Spacer(),
-              const Text(
-                'CloudLearn',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: 'Back',
                 ),
+              ),
+              const Spacer(),
+              const AppLogo(
+                width: 260,
               ),
               const SizedBox(height: 12),
               const Text(

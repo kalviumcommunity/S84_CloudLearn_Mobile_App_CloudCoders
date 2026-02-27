@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../shared/widgets/app_logo.dart';
 
 import 'auth_choice_screen.dart';
 import 'login_screen.dart';
+import 'widgets/auth_shell.dart';
 import 'widgets/primary_button.dart';
 
 class WelcomeScreen extends StatefulWidget {
@@ -11,12 +13,23 @@ class WelcomeScreen extends StatefulWidget {
   State<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
-class _WelcomeScreenState extends State<WelcomeScreen> {
+class _WelcomeScreenState extends State<WelcomeScreen>
+    with SingleTickerProviderStateMixin {
   bool _visible = false;
+  late final AnimationController _cloudController;
+  late final Animation<double> _cloudOffset;
 
   @override
   void initState() {
     super.initState();
+    _cloudController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3200),
+    )..repeat(reverse: true);
+    _cloudOffset = Tween<double>(begin: -4, end: 6).animate(
+      CurvedAnimation(parent: _cloudController, curve: Curves.easeOutCubic),
+    );
+
     Future<void>.delayed(const Duration(milliseconds: 100), () {
       if (mounted) {
         setState(() => _visible = true);
@@ -25,112 +38,109 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   @override
+  void dispose() {
+    _cloudController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final maxWidth = constraints.maxWidth > 480 ? 480.0 : constraints.maxWidth;
-            return Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: AnimatedOpacity(
-                  opacity: _visible ? 1 : 0,
-                  duration: const Duration(milliseconds: 500),
-                  curve: Curves.easeOut,
-                  child: SizedBox(
-                    width: maxWidth,
-                    child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 96,
-                              height: 96,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: const Color(0xFFF2ECFF),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.07),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 10),
-                                  ),
-                                ],
-                              ),
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                Icons.cloud_queue_rounded,
-                                size: 52,
-                                color: Color(0xFF7A5AF8),
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            const Text(
-                              'Welcome to CloudLearn',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 26,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF2F1F64),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            const Text(
-                              'Start learning cloud concepts with Firebase.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Color(0xFF625B71),
-                                fontSize: 14.5,
-                              ),
-                            ),
-                            const SizedBox(height: 28),
-                            PrimaryButton(
-                              label: 'Get Started',
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  _fadeRoute(const AuthChoiceScreen()),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 14),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  _fadeRoute(const LoginScreen()),
-                                );
-                              },
-                              child: const Text(
-                                'Already have an account? Log In',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF4A347E),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+    return AuthShell(
+      child: AnimatedOpacity(
+        opacity: _visible ? 1 : 0,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOutCubic,
+        child: AnimatedSlide(
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeOutCubic,
+          offset: _visible ? Offset.zero : const Offset(0, 0.03),
+          child: GlassCard(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedBuilder(
+                  animation: _cloudOffset,
+                  builder: (context, child) {
+                    return Transform.translate(
+                      offset: Offset(0, _cloudOffset.value),
+                      child: child,
+                    );
+                  },
+                  child: Container(
+                    width: 210,
+                    height: 140,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFEEDFFF), Color(0xFFD2B7FF)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF5931BB).withValues(alpha: 0.22),
+                          blurRadius: 28,
+                          offset: const Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: const AppLogo(
+                      width: 176,
                     ),
                   ),
                 ),
-              ),
-            );
-          },
+                const SizedBox(height: 28),
+                const Text(
+                  'Welcome to CloudLearn',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF291451),
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Master cloud concepts with elegant, project-first learning paths.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: const Color(0xFF291451).withValues(alpha: 0.62),
+                    fontSize: 14.5,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 36),
+                PrimaryButton(
+                  label: 'Get Started',
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      buildAuthRoute(const AuthChoiceScreen()),
+                    );
+                  },
+                ),
+                const SizedBox(height: 14),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      buildAuthRoute(const LoginScreen()),
+                    );
+                  },
+                  child: Text(
+                    'Already have an account? Log In',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: const Color(0xFF3D2082).withValues(alpha: 0.82),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
-}
-
-PageRouteBuilder<void> _fadeRoute(Widget page) {
-  return PageRouteBuilder<void>(
-    pageBuilder: (_, animation, __) => FadeTransition(
-      opacity: animation,
-      child: page,
-    ),
-    transitionDuration: const Duration(milliseconds: 320),
-  );
 }
