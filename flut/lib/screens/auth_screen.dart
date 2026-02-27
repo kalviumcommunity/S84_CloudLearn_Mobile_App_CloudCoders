@@ -90,6 +90,10 @@ class _AuthScreenState extends State<AuthScreen> {
                 setState(() {
                   _isLogin = !_isLogin;
                 });
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Login functionality not implemented yet')),
+                );
               },
               child: Text(
                 _isLogin
