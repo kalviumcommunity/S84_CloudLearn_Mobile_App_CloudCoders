@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+// Import services
+import 'services/firestore_service.dart';
+import 'screens/get_started_screen.dart';
 // Import screens
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
@@ -27,7 +30,7 @@ class MyApp extends StatelessWidget {
           if (snapshot.hasData) {
             return HomeScreen();
           }
-          return AuthScreen();
+          return const GetStartedScreen();
         },
       ),
     );

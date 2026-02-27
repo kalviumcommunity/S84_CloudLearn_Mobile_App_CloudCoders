@@ -3,6 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'firebase_options.dart';
+import 'screens/get_started_screen.dart';
+import 'screens/home_screen.dart';
+import 'screens/splash_screen.dart';
+import 'services/auth_service.dart';
 
 import 'features/auth/auth_choice_screen.dart';
 import 'features/auth/login_screen.dart';
@@ -84,6 +90,42 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'CloudLearn',
       debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        textTheme: GoogleFonts.poppinsTextTheme(),
+        useMaterial3: true,
+      ),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const SplashScreen(),
+        '/welcome': (context) => const WelcomeRouteScreen(),
+      },
+    );
+  }
+}
+
+class WelcomeRouteScreen extends StatelessWidget {
+  const WelcomeRouteScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder(
+      stream: AuthService().authStateChanges,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        if (snapshot.hasData) {
+          return const HomeScreen();
+        }
+
+        return const GetStartedScreen();
+      },
       theme: baseTheme.copyWith(
         textTheme: GoogleFonts.poppinsTextTheme(baseTheme.textTheme),
         scaffoldBackgroundColor: Colors.transparent,
