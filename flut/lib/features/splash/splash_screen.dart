@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../shared/widgets/app_logo.dart';
 
 import '../auth/welcome_screen.dart';
 
@@ -58,11 +59,11 @@ class _SplashScreenState extends State<SplashScreen>
           child: ScaleTransition(
             scale: _scaleAnimation,
             child: Container(
-              width: 140,
-              height: 140,
+              width: 220,
+              height: 150,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+                color: Colors.white.withValues(alpha: 0.94),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.10),
@@ -72,10 +73,8 @@ class _SplashScreenState extends State<SplashScreen>
                 ],
               ),
               alignment: Alignment.center,
-              child: const Icon(
-                Icons.cloud_done_rounded,
-                size: 72,
-                color: Color(0xFF7A5AF8),
+              child: const AppLogo(
+                width: 188,
               ),
             ),
           ),

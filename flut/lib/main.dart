@@ -20,7 +20,7 @@ class MyApp extends StatelessWidget {
     final baseTheme = ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF7A5AF8),
+        seedColor: const Color(0xFF7C4DFF),
       ),
     );
 
@@ -30,11 +30,19 @@ class MyApp extends StatelessWidget {
       theme: baseTheme.copyWith(
         textTheme: GoogleFonts.poppinsTextTheme(baseTheme.textTheme),
         scaffoldBackgroundColor: Colors.transparent,
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.85),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(22),
+            borderSide: BorderSide.none,
+          ),
+        ),
         cardTheme: const CardThemeData(
-          elevation: 10,
-          shadowColor: Color(0x1F2F1F64),
+          elevation: 0,
+          shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(26)),
+            borderRadius: BorderRadius.all(Radius.circular(30)),
           ),
         ),
       ),
@@ -46,22 +54,6 @@ class MyApp extends StatelessWidget {
         '/signup': (context) => const SignupScreen(),
       },
       initialRoute: '/',
-      builder: (context, child) {
-        return Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFF4ECFF),
-                Color(0xFFE9DBFF),
-                Color(0xFFD8C5FF),
-              ],
-            ),
-          ),
-          child: child,
-        );
-      },
       onUnknownRoute: (_) => MaterialPageRoute(
         builder: (context) => const SplashScreen(),
       ),
