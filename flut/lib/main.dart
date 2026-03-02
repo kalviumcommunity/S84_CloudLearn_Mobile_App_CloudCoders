@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'firebase_options.dart';
-import 'screens/auth_screen.dart';
+import 'screens/get_started_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/auth_service.dart';
 
@@ -28,6 +29,7 @@ class MyApp extends StatelessWidget {
       title: 'CloudLearn - Firebase Integration',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
+        textTheme: GoogleFonts.poppinsTextTheme(),
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
@@ -47,7 +49,7 @@ class MyApp extends StatelessWidget {
             return const HomeScreen();
           }
           
-          return const AuthScreen();
+          return const GetStartedScreen();
         },
       ),
     );
