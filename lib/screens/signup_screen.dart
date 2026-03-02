@@ -29,6 +29,7 @@ class _SignupScreenState extends State<SignupScreen> {
       );
 
       if (user != null && mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Welcome ${user.email}!')),
         );

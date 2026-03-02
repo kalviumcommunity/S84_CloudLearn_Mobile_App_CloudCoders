@@ -27,6 +27,29 @@ class CustomTextField extends StatefulWidget {
   final Widget? suffixIcon;
   final Widget? prefixIcon;
 
+
+class CustomTextField extends StatefulWidget {
+  final TextEditingController controller;
+  final String? labelText;
+  final String hintText;
+  final IconData prefixIcon;
+  final bool isPassword;
+  final TextInputType keyboardType;
+  final ValueChanged<String>? onChanged;
+  final String? Function(String?)? validator;
+
+  const CustomTextField({
+    super.key,
+    required this.controller,
+    this.labelText,
+    required this.hintText,
+    required this.prefixIcon,
+    this.isPassword = false,
+    this.keyboardType = TextInputType.text,
+    this.onChanged,
+    this.validator,
+  });
+
   @override
   State<CustomTextField> createState() => _CustomTextFieldState();
 }
@@ -36,6 +59,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
   late final bool _isExternalFocusNode;
 
   bool get _isFocused => _focusNode.hasFocus;
+  late bool _obscureText;
 
   @override
   void initState() {
@@ -55,6 +79,12 @@ class _CustomTextFieldState extends State<CustomTextField> {
   }
 
   void _focusListener() {
+    _focusNode = FocusNode();
+    _obscureText = widget.isPassword;
+    _focusNode.addListener(_onFocusChanged);
+  }
+
+  void _onFocusChanged() {
     if (mounted) {
       setState(() {});
     }
@@ -66,11 +96,17 @@ class _CustomTextFieldState extends State<CustomTextField> {
     if (!_isExternalFocusNode) {
       _focusNode.dispose();
     }
+    _focusNode
+      ..removeListener(_onFocusChanged)
+      ..dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isFocused = _focusNode.hasFocus;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
@@ -95,6 +131,14 @@ class _CustomTextFieldState extends State<CustomTextField> {
             color: Color(0x14FFFFFF),
             blurRadius: 4,
             offset: Offset(-2, -2),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: isFocused
+                ? colorScheme.primary.withValues(alpha: 0.18)
+                : Colors.black.withValues(alpha: 0.05),
+            blurRadius: isFocused ? 18 : 12,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -133,6 +177,43 @@ class _CustomTextFieldState extends State<CustomTextField> {
           focusedErrorBorder: InputBorder.none,
           suffixIcon: widget.suffixIcon,
           prefixIcon: widget.prefixIcon,
+        obscureText: _obscureText,
+        keyboardType: widget.keyboardType,
+        onChanged: widget.onChanged,
+        validator: widget.validator,
+        decoration: InputDecoration(
+          labelText: widget.labelText,
+          hintText: widget.hintText,
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.88),
+          prefixIcon: Icon(widget.prefixIcon),
+          suffixIcon: widget.isPassword
+              ? IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _obscureText = !_obscureText;
+                    });
+                  },
+                  icon: Icon(
+                    _obscureText ? Icons.visibility_off : Icons.visibility,
+                  ),
+                )
+              : null,
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(24),
+            borderSide: const BorderSide(
+              color: Colors.transparent,
+              width: 1.2,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(24),
+            borderSide: BorderSide(color: colorScheme.primary, width: 1.6),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 18,
+          ),
         ),
       ),
     );
