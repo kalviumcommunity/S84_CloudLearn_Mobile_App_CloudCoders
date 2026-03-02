@@ -91,6 +91,7 @@ class MyApp extends StatelessWidget {
       title: 'CloudLearn',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
+        textTheme: GoogleFonts.poppinsTextTheme(),
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         textTheme: GoogleFonts.poppinsTextTheme(),
         useMaterial3: true,
@@ -170,6 +171,15 @@ class WelcomeRouteScreen extends StatelessWidget {
                   Color(0xFFD8C5FF),
                 ],
               ),
+            );
+          }
+          
+          if (snapshot.hasData) {
+            return const HomeScreen();
+          }
+          
+          return const GetStartedScreen();
+        },
             ),
             child: child,
           );
