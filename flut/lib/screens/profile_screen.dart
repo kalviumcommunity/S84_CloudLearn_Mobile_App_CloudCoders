@@ -172,7 +172,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               label: 'Log Out',
               onPressed: () async {
                 await AuthService().signOut();
-                if (mounted) {
+                if (context.mounted) {
                   Navigator.of(context).pop(); // Go back or close
                 }
               },

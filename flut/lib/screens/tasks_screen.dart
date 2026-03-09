@@ -100,7 +100,7 @@ class TasksScreen extends StatelessWidget {
   }
 
   void _showAddTaskDialog(BuildContext context) {
-    final TextEditingController _controller = TextEditingController();
+    final TextEditingController controller = TextEditingController();
 
     showDialog(
       context: context,
@@ -108,7 +108,7 @@ class TasksScreen extends StatelessWidget {
         return AlertDialog(
           title: const Text('New Learning Goal'),
           content: TextField(
-            controller: _controller,
+            controller: controller,
             decoration: const InputDecoration(
               hintText: 'e.g., Master Firestore Queries',
             ),
@@ -121,8 +121,8 @@ class TasksScreen extends StatelessWidget {
             ),
             TextButton(
               onPressed: () {
-                if (_controller.text.isNotEmpty) {
-                  context.read<TaskProvider>().addTask(_controller.text.trim());
+                if (controller.text.isNotEmpty) {
+                  context.read<TaskProvider>().addTask(controller.text.trim());
                   Navigator.of(context).pop();
                 }
               },
