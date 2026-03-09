@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
 import 'dashboard_screen.dart';
 import 'map_screen.dart';
 import 'profile_screen.dart';
