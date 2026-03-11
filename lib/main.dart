@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 
 // Import screens
-import 'screens/get_started_screen.dart';
+import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 
 void main() async {
@@ -32,7 +32,7 @@ class MyApp extends StatelessWidget {
           if (snapshot.hasData) {
             return HomeScreen();
           }
-          return const GetStartedScreen();
+          return AuthScreen();
         },
       ),
     );
