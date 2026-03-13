@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'my_courses_screen.dart';
+
 class StudentHomeScreen extends StatefulWidget {
   const StudentHomeScreen({super.key});
 
@@ -268,6 +270,18 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                 indicatorColor: const Color(0xFF6C5CE7).withValues(alpha: 0.18),
                 labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
                 onDestinationSelected: (index) {
+                  if (index == 0) {
+                    setState(() => _selectedIndex = index);
+                    return;
+                  }
+
+                  if (index == 1) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const MyCoursesScreen()),
+                    );
+                    return;
+                  }
+
                   setState(() => _selectedIndex = index);
                 },
                 destinations: const [
