@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
 import 'map_screen.dart';
 import 'profile_screen.dart';
+import 'progress_screen.dart';
+import 'settings_screen.dart';
 import 'tasks_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -17,8 +19,10 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<Widget> _screens = const [
     DashboardScreen(),
     TasksScreen(),
+    ProgressScreen(),
     MapScreen(),
     ProfileScreen(),
+    SettingsScreen(),
   ];
 
   @override
@@ -43,12 +47,17 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
             selectedIcon: Icon(Icons.dashboard),
-            label: 'Home',
+            label: 'Dashboard',
           ),
           NavigationDestination(
             icon: Icon(Icons.check_circle_outline),
             selectedIcon: Icon(Icons.check_circle),
             label: 'Learning',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.bar_chart_outlined),
+            selectedIcon: Icon(Icons.bar_chart),
+            label: 'Progress',
           ),
           NavigationDestination(
             icon: Icon(Icons.map_outlined),
@@ -59,6 +68,11 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
             label: 'Profile',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: 'Settings',
           ),
         ],
       ),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'progress_analytics_screen.dart';
+import 'my_courses_screen.dart';
 
 class StudentHomeScreen extends StatefulWidget {
   const StudentHomeScreen({super.key});
@@ -273,6 +274,14 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                   if (index == 2) {
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const ProgressAnalyticsScreen()),
+                  if (index == 0) {
+                    setState(() => _selectedIndex = index);
+                    return;
+                  }
+
+                  if (index == 1) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const MyCoursesScreen()),
                     );
                     return;
                   }
