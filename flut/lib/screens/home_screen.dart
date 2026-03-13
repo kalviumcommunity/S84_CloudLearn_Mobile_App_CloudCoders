@@ -3,6 +3,7 @@ import 'dashboard_screen.dart';
 import 'map_screen.dart';
 import 'profile_screen.dart';
 import 'progress_screen.dart';
+import 'settings_screen.dart';
 import 'tasks_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ProgressScreen(),
     MapScreen(),
     ProfileScreen(),
+    SettingsScreen(),
   ];
 
   @override
@@ -66,6 +68,11 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
             label: 'Profile',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: 'Settings',
           ),
         ],
       ),
