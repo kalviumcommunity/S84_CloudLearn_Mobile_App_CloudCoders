@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'progress_analytics_screen.dart';
+
 class StudentHomeScreen extends StatefulWidget {
   const StudentHomeScreen({super.key});
 
@@ -268,12 +270,19 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                 indicatorColor: const Color(0xFF6C5CE7).withValues(alpha: 0.18),
                 labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
                 onDestinationSelected: (index) {
+                  if (index == 2) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ProgressAnalyticsScreen()),
+                    );
+                    return;
+                  }
+
                   setState(() => _selectedIndex = index);
                 },
                 destinations: const [
                   NavigationDestination(icon: Icon(Icons.home_rounded), label: 'Home'),
                   NavigationDestination(icon: Icon(Icons.menu_book_rounded), label: 'Courses'),
-                  NavigationDestination(icon: Icon(Icons.assignment_rounded), label: 'Tasks'),
+                  NavigationDestination(icon: Icon(Icons.auto_graph_rounded), label: 'Progress'),
                   NavigationDestination(icon: Icon(Icons.person_rounded), label: 'Profile'),
                 ],
               ),
