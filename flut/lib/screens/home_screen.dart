@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'assignments_screen.dart';
 import 'dashboard_screen.dart';
 import 'map_screen.dart';
 import 'profile_screen.dart';
 import 'progress_screen.dart';
 import 'settings_screen.dart';
-import 'tasks_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,7 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Widget> _screens = const [
     DashboardScreen(),
-    TasksScreen(),
+    AssignmentsScreen(),
     ProgressScreen(),
     MapScreen(),
     ProfileScreen(),
@@ -50,9 +50,9 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Dashboard',
           ),
           NavigationDestination(
-            icon: Icon(Icons.check_circle_outline),
-            selectedIcon: Icon(Icons.check_circle),
-            label: 'Learning',
+            icon: Icon(Icons.assignment_outlined),
+            selectedIcon: Icon(Icons.assignment),
+            label: 'Assignments',
           ),
           NavigationDestination(
             icon: Icon(Icons.bar_chart_outlined),

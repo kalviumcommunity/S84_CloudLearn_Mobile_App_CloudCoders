@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
+import 'providers/task_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/get_started_screen.dart';
 import 'screens/home_screen.dart';
@@ -23,6 +24,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => TaskProvider()),
       ],
       child: const MyApp(),
     ),
@@ -53,7 +55,6 @@ class MyApp extends StatelessWidget {
             useMaterial3: true,
           ),
           themeMode: themeProvider.themeMode,
-          // Check if user is authenticated and route accordingly
           home: StreamBuilder(
             stream: AuthService().authStateChanges,
             builder: (context, snapshot) {
@@ -64,14 +65,16 @@ class MyApp extends StatelessWidget {
                   ),
                 );
               }
-              
+
               if (snapshot.hasData) {
                 return const HomeScreen();
               }
-          
-          return const GetStartedScreen();
-        },
-      ),
+
+              return const GetStartedScreen();
+            },
+          ),
+        );
+      },
     );
   }
 }

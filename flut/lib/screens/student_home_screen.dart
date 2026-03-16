@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'assignments_screen.dart';
 import 'progress_analytics_screen.dart';
 import 'my_courses_screen.dart';
 
@@ -75,6 +76,29 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
     if (hour < 12) return 'Good morning ☀️';
     if (hour < 17) return 'Good afternoon 🌤️';
     return 'Good evening 🌙';
+  }
+
+  void _openFeature(String label) {
+    if (label == 'Assignments') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const AssignmentsScreen()),
+      );
+      return;
+    }
+
+    if (label == 'My Courses') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const MyCoursesScreen()),
+      );
+      return;
+    }
+
+    if (label == 'Progress') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const ProgressAnalyticsScreen()),
+      );
+      return;
+    }
   }
 
   @override
@@ -213,7 +237,11 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                           childAspectRatio: 1.1,
                           children: [
                             for (int i = 0; i < _features.length; i++)
-                              _FeatureCard(item: _features[i], delayMs: 80 * i),
+                              _FeatureCard(
+                                item: _features[i],
+                                delayMs: 80 * i,
+                                onTap: () => _openFeature(_features[i].label),
+                              ),
                           ],
                         ),
                         const SizedBox(height: 24),
@@ -274,6 +302,10 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                   if (index == 2) {
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const ProgressAnalyticsScreen()),
+                    );
+                    return;
+                  }
+
                   if (index == 0) {
                     setState(() => _selectedIndex = index);
                     return;
@@ -508,7 +540,12 @@ class _DailyChallengeCard extends StatelessWidget {
 class _FeatureCard extends StatefulWidget {
   final _FeatureItem item;
   final int delayMs;
-  const _FeatureCard({required this.item, required this.delayMs});
+  final VoidCallback onTap;
+  const _FeatureCard({
+    required this.item,
+    required this.delayMs,
+    required this.onTap,
+  });
 
   @override
   State<_FeatureCard> createState() => _FeatureCardState();
@@ -552,7 +589,7 @@ class _FeatureCardState extends State<_FeatureCard>
           onTapDown: (_) => setState(() => _isPressed = true),
           onTapUp: (_) => setState(() => _isPressed = false),
           onTapCancel: () => setState(() => _isPressed = false),
-          onTap: () {},
+          onTap: widget.onTap,
           child: AnimatedScale(
             duration: const Duration(milliseconds: 150),
             scale: _isPressed ? 0.96 : 1,
