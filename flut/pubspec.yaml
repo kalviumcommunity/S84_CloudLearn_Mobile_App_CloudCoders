@@ -20,6 +20,8 @@ dependencies:
 
   # Image Picker for uploading files
   image_picker: ^1.1.2
+  file_picker: ^8.1.2
+  intl: ^0.20.2
 
   # Maps & Location
   google_maps_flutter: ^2.10.0
