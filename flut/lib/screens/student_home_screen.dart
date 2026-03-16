@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'assignments_screen.dart';
 import 'progress_analytics_screen.dart';
+import 'profile_screen.dart';
 import 'my_courses_screen.dart';
 
 class StudentHomeScreen extends StatefulWidget {
@@ -314,6 +315,13 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                   if (index == 1) {
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const MyCoursesScreen()),
+                    );
+                    return;
+                  }
+
+                  if (index == 3) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
                     );
                     return;
                   }
