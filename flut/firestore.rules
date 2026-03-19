@@ -27,7 +27,23 @@ service cloud.firestore {
 
     // Existing app tasks remain available to authenticated users.
     match /tasks/{taskId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && isNonEmptyString(request.resource.data.title, 200)
+        && request.resource.data.createdAt is timestamp
+        && (!('completed' in request.resource.data)
+            || request.resource.data.completed is bool);
+
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid
+        && isNonEmptyString(request.resource.data.title, 200)
+        && (!('completed' in request.resource.data)
+            || request.resource.data.completed is bool);
+
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
   }
 }
