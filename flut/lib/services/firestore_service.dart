@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 /// Firestore Service for Real-Time Data Management
 /// 
 /// Provides methods to interact with Cloud Firestore for real-time data sync
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   /// Reference to the tasks collection
   CollectionReference get tasks => _firestore.collection('tasks');
