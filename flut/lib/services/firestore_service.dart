@@ -13,9 +13,15 @@ class FirestoreService {
   /// 
   /// Automatically syncs across all connected devices in real-time
   Future<DocumentReference> addTask(String title) {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw Exception('You must be signed in to add a task.');
+    }
+
     return tasks.add({
       'title': title,
-      'createdAt': Timestamp.now(),
+      'userId': uid,
+      'createdAt': FieldValue.serverTimestamp(),
       'completed': false,
     });
   }
