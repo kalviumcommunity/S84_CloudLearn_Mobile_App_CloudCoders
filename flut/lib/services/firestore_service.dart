@@ -25,7 +25,15 @@ class FirestoreService {
   /// Stream automatically updates when data changes in Firestore
   /// No manual refresh needed - this is the power of Firebase real-time sync!
   Stream<QuerySnapshot> getTasks() {
-    return tasks.orderBy('createdAt', descending: true).snapshots();
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      return const Stream.empty();
+    }
+
+    return tasks
+        .where('userId', isEqualTo: uid)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
   }
 
   /// Update a task
