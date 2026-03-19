@@ -31,8 +31,9 @@ class StudentProfile {
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toMap(String uid) {
     return {
+      'userId': uid,
       'name': name,
       'email': email,
       'phoneNumber': phoneNumber,
@@ -63,7 +64,7 @@ class ProfileService {
   }
 
   Future<void> saveProfile(String uid, StudentProfile profile) {
-    return _doc(uid).set(profile.toMap(), SetOptions(merge: true));
+    return _doc(uid).set(profile.toMap(uid), SetOptions(merge: true));
   }
 
   Future<int> getAssignmentsCompletedCount(String uid) async {
