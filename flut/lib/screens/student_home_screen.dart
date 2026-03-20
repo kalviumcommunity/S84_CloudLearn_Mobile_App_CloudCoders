@@ -294,47 +294,6 @@ class _Header extends StatelessWidget {
                 icon: const Icon(Icons.notifications_outlined, size: 22),
                 color: _kDeep,
                 onPressed: onNotificationTap,
-              child: NavigationBar(
-                height: 68,
-                selectedIndex: _selectedIndex,
-                backgroundColor: Colors.transparent,
-                indicatorColor: const Color(0xFF6C5CE7).withValues(alpha: 0.18),
-                labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
-                onDestinationSelected: (index) {
-                  if (index == 2) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ProgressAnalyticsScreen()),
-                    );
-                    return;
-                  }
-
-                  if (index == 0) {
-                    setState(() => _selectedIndex = index);
-                    return;
-                  }
-
-                  if (index == 1) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const MyCoursesScreen()),
-                    );
-                    return;
-                  }
-
-                  if (index == 3) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                    );
-                    return;
-                  }
-
-                  setState(() => _selectedIndex = index);
-                },
-                destinations: const [
-                  NavigationDestination(icon: Icon(Icons.home_rounded), label: 'Home'),
-                  NavigationDestination(icon: Icon(Icons.menu_book_rounded), label: 'Courses'),
-                  NavigationDestination(icon: Icon(Icons.auto_graph_rounded), label: 'Progress'),
-                  NavigationDestination(icon: Icon(Icons.person_rounded), label: 'Profile'),
-                ],
               ),
             ),
             if (notificationCount > 0)
