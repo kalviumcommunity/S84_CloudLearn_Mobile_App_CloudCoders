@@ -194,8 +194,8 @@ class AssignmentService {
 
     if (file != null) {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-        final sourceName = originalFileName ?? file.path.split(RegExp(r'[\\/]')).last;
-        final safeName = sourceName
+      final sourceName = originalFileName ?? file.path.split(RegExp(r'[\\/]')).last;
+      final safeName = sourceName
           .replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
       final storagePath = 'assignments/${assignment.id}/$userId-$timestamp-$safeName';
       fileUrl = await _storageService.uploadFile(file, storagePath);
