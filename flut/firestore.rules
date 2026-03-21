@@ -1,6 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
     function isSignedIn() {
       return request.auth != null;
     }
@@ -9,25 +10,76 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    function hasOnlyKeys(data, allowedKeys) {
+      return data.keys().hasOnly(allowedKeys);
+    }
+
     // Assignment submissions are private to the submitting student.
     match /assignment_submissions/{submissionId} {
       allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && hasOnlyKeys(request.resource.data, [
+          'assignmentId',
+          'userId',
+          'answerText',
+          'fileUrl',
+          'fileName',
+          'status',
+          'submittedAt',
+          'updatedAt',
+        ]);
       allow update: if isSignedIn()
         && resource.data.userId == request.auth.uid
-        && request.resource.data.userId == request.auth.uid;
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.assignmentId == resource.data.assignmentId;
       allow delete: if false;
     }
 
     // Student profile is editable by the owner only.
     match /user_profiles/{userId} {
-      allow read, create, update: if isOwner(userId);
+      allow read, create, update: if isOwner(userId)
+        && request.resource.data.userId == userId
+        && request.resource.data.email is string
+        && (!('name' in request.resource.data)
+            || request.resource.data.name is string)
+        && (!('phoneNumber' in request.resource.data)
+            || request.resource.data.phoneNumber is string)
+        && (!('course' in request.resource.data)
+            || request.resource.data.course is string)
+        && (!('avatarUrl' in request.resource.data)
+            || request.resource.data.avatarUrl is string)
+        && (!('coursesEnrolled' in request.resource.data)
+            || request.resource.data.coursesEnrolled is int)
+        && (!('learningStreak' in request.resource.data)
+            || request.resource.data.learningStreak is int);
       allow delete: if false;
     }
 
-    // Existing app tasks remain available to authenticated users.
+    // Assignment catalog is readable by authenticated students.
+    match /assignments/{assignmentId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // Task data is private per user.
     match /tasks/{taskId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.completed is bool
+        && hasOnlyKeys(request.resource.data, [
+          'title',
+          'userId',
+          'createdAt',
+          'updatedAt',
+          'completed',
+        ]);
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
   }
 }

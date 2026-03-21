@@ -31,8 +31,9 @@ class StudentProfile {
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toMap(String uid) {
     return {
+      'userId': uid,
       'name': name,
       'email': email,
       'phoneNumber': phoneNumber,
