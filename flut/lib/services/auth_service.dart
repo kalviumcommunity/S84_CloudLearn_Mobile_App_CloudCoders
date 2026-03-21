@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 /// Firebase Authentication Service
@@ -5,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 /// Handles user sign-up, sign-in, and session management
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   /// Get current user
   User? get currentUser => _auth.currentUser;
@@ -22,6 +24,7 @@ class AuthService {
         email: email,
         password: password,
       );
+      await _ensureUserProfile(userCredential.user);
       return userCredential.user;
     } on FirebaseAuthException catch (e) {
       // Handle specific errors
@@ -47,6 +50,7 @@ class AuthService {
         email: email,
         password: password,
       );
+      await _ensureUserProfile(userCredential.user);
       return userCredential.user;
     } on FirebaseAuthException catch (e) {
       // Handle specific errors
@@ -74,5 +78,26 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       throw Exception('Password reset failed: ${e.message}');
     }
+  }
+
+  Future<void> _ensureUserProfile(User? user) async {
+    if (user == null) return;
+
+    final docRef = _firestore.collection('user_profiles').doc(user.uid);
+    final existing = await docRef.get();
+    final now = FieldValue.serverTimestamp();
+
+    final data = {
+      'name': user.displayName ?? '',
+      'email': user.email ?? '',
+      'avatarUrl': user.photoURL ?? '',
+      'course': 'Cloud Computing',
+      'coursesEnrolled': 3,
+      'learningStreak': 7,
+      'updatedAt': now,
+      if (!existing.exists) 'createdAt': now,
+    };
+
+    await docRef.set(data, SetOptions(merge: true));
   }
 }
