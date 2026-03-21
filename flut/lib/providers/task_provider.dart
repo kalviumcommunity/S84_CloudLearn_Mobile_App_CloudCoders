@@ -6,7 +6,8 @@ class TaskProvider with ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
 
   // Tasks stream directly from Firestore
-  Stream<QuerySnapshot> get tasksStream => _firestoreService.getTasks();
+  Stream<QuerySnapshot<Map<String, dynamic>>> get tasksStream =>
+      _firestoreService.getTasks();
 
   Future<void> addTask(String title) async {
     await _firestoreService.addTask(title);
