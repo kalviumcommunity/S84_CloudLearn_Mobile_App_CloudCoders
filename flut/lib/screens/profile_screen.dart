@@ -908,64 +908,10 @@ class _ProfileField extends StatelessWidget {
               filled: false,
               contentPadding: const EdgeInsets.symmetric(
                   horizontal: 4, vertical: 14),
-class _ProfileField extends StatelessWidget {
-  const _ProfileField({
-    required this.label,
-    required this.controller,
-    required this.enabled,
-    this.keyboardType,
-  });
-
-  final String label;
-  final TextEditingController controller;
-  final bool enabled;
-  final TextInputType? keyboardType;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      enabled: enabled,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
