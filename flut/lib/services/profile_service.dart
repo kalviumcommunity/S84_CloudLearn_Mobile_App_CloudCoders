@@ -55,6 +55,16 @@ class ProfileService {
   DocumentReference<Map<String, dynamic>> _doc(String uid) =>
       _firestore.collection('user_profiles').doc(uid);
 
+  Stream<StudentProfile?> watchProfile(String uid) {
+    return _doc(uid).snapshots().map((snapshot) {
+      final data = snapshot.data();
+      if (!snapshot.exists || data == null) {
+        return null;
+      }
+      return StudentProfile.fromMap(data);
+    });
+  }
+
   Future<StudentProfile?> getProfile(String uid) async {
     final snapshot = await _doc(uid).get();
     if (!snapshot.exists || snapshot.data() == null) {
@@ -63,8 +73,14 @@ class ProfileService {
     return StudentProfile.fromMap(snapshot.data()!);
   }
 
-  Future<void> saveProfile(String uid, StudentProfile profile) {
-    return _doc(uid).set(profile.toMap(uid), SetOptions(merge: true));
+  Future<void> saveProfile(String uid, StudentProfile profile) async {
+    final ref = _doc(uid);
+    final existing = await ref.get();
+    final data = {
+      ...profile.toMap(),
+      if (!existing.exists) 'createdAt': FieldValue.serverTimestamp(),
+    };
+    await ref.set(data, SetOptions(merge: true));
   }
 
   Future<int> getAssignmentsCompletedCount(String uid) async {
