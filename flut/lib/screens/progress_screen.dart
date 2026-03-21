@@ -15,7 +15,7 @@ class ProgressScreen extends StatelessWidget {
       ),
       body: Consumer<TaskProvider>(
         builder: (context, taskProvider, child) {
-          return StreamBuilder<QuerySnapshot>(
+          return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: taskProvider.tasksStream,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -29,7 +29,7 @@ class ProgressScreen extends StatelessWidget {
               final tasks = snapshot.data!.docs;
               final totalTasks = tasks.length;
               final completedTasks = tasks.where((task) {
-                final data = task.data() as Map<String, dynamic>;
+                final data = task.data();
                 return data['completed'] ?? false;
               }).length;
               final completionPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0.0;
