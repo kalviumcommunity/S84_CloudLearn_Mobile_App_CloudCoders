@@ -69,7 +69,6 @@ class AssignmentsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final assignmentService = AssignmentService();
-    final assignments = assignmentService.getAssignments();
 
     return Scaffold(
       backgroundColor: const Color(0xFFEEE9FF),
@@ -91,19 +90,35 @@ class AssignmentsScreen extends StatelessWidget {
       ),
       body: Container(
         decoration: const BoxDecoration(gradient: _kGradientBg),
-        child: user == null
-            ? _buildAssignmentList(
-                context, assignmentService, assignments, const {},
-              )
-            : StreamBuilder<Map<String, AssignmentSubmission>>(
-                stream: assignmentService.watchSubmissions(user.uid),
-                builder: (context, snapshot) {
-                  final submissions = snapshot.data ?? {};
-                  return _buildAssignmentList(
-                    context, assignmentService, assignments, submissions,
-                  );
-                },
-              ),
+        child: StreamBuilder<List<AssignmentItem>>(
+          stream: assignmentService.watchAssignments(),
+          builder: (context, assignmentsSnapshot) {
+            final assignments =
+                assignmentsSnapshot.data ?? assignmentService.getAssignments();
+
+            if (user == null) {
+              return _buildAssignmentList(
+                context,
+                assignmentService,
+                assignments,
+                const {},
+              );
+            }
+
+            return StreamBuilder<Map<String, AssignmentSubmission>>(
+              stream: assignmentService.watchSubmissions(user.uid),
+              builder: (context, submissionsSnapshot) {
+                final submissions = submissionsSnapshot.data ?? {};
+                return _buildAssignmentList(
+                  context,
+                  assignmentService,
+                  assignments,
+                  submissions,
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }

@@ -16,6 +16,35 @@ class AssignmentItem {
   final String title;
   final String description;
   final DateTime dueDate;
+
+  factory AssignmentItem.fromMap(String id, Map<String, dynamic> map) {
+    final dueDateValue = map['dueDate'];
+    DateTime dueDate;
+    if (dueDateValue is Timestamp) {
+      dueDate = dueDateValue.toDate();
+    } else if (dueDateValue is DateTime) {
+      dueDate = dueDateValue;
+    } else {
+      dueDate = DateTime.now().add(const Duration(days: 7));
+    }
+
+    return AssignmentItem(
+      id: id,
+      title: map['title'] as String? ?? 'Untitled Assignment',
+      description: map['description'] as String? ?? '',
+      dueDate: dueDate,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'title': title,
+      'description': description,
+      'dueDate': Timestamp.fromDate(dueDate),
+      'isActive': true,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+  }
 }
 
 class AssignmentSubmission {
@@ -91,6 +120,25 @@ class AssignmentService {
   CollectionReference<Map<String, dynamic>> get _submissions =>
       _firestore.collection('assignment_submissions');
 
+  CollectionReference<Map<String, dynamic>> get _assignmentsCollection =>
+      _firestore.collection('assignments');
+
+  Stream<List<AssignmentItem>> watchAssignments() {
+    return _assignmentsCollection
+        .where('isActive', isEqualTo: true)
+        .orderBy('dueDate')
+        .snapshots()
+        .map((snapshot) {
+      if (snapshot.docs.isEmpty) {
+        return getAssignments();
+      }
+
+      return snapshot.docs
+          .map((doc) => AssignmentItem.fromMap(doc.id, doc.data()))
+          .toList();
+    });
+  }
+
   Stream<Map<String, AssignmentSubmission>> watchSubmissions(String userId) {
     return _submissions.where('userId', isEqualTo: userId).snapshots().map((snapshot) {
       final map = <String, AssignmentSubmission>{};
@@ -146,7 +194,8 @@ class AssignmentService {
 
     if (file != null) {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final safeName = (originalFileName ?? file.path.split('\\').last)
+        final sourceName = originalFileName ?? file.path.split(RegExp(r'[\\/]')).last;
+        final safeName = sourceName
           .replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
       final storagePath = 'assignments/${assignment.id}/$userId-$timestamp-$safeName';
       fileUrl = await _storageService.uploadFile(file, storagePath);
