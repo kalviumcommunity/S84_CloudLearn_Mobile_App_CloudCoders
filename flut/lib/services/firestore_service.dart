@@ -9,21 +9,32 @@ class FirestoreService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   /// Reference to the tasks collection
-  CollectionReference get tasks => _firestore.collection('tasks');
+  CollectionReference<Map<String, dynamic>> get tasks =>
+      _firestore.collection('tasks');
+
+  String get _uid {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw Exception('User must be signed in to access tasks.');
+    }
+    return uid;
+  }
 
   /// Add a new task to Firestore
   /// 
   /// Automatically syncs across all connected devices in real-time
-  Future<DocumentReference> addTask(String title) {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) {
-      throw Exception('You must be signed in to add a task.');
+  Future<DocumentReference<Map<String, dynamic>>> addTask(String title) {
+    final trimmedTitle = title.trim();
+    if (trimmedTitle.isEmpty) {
+      throw Exception('Task title cannot be empty.');
     }
 
+    final uid = _uid;
     return tasks.add({
-      'title': title,
+      'title': trimmedTitle,
       'userId': uid,
       'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
       'completed': false,
     });
   }
@@ -32,10 +43,10 @@ class FirestoreService {
   /// 
   /// Stream automatically updates when data changes in Firestore
   /// No manual refresh needed - this is the power of Firebase real-time sync!
-  Stream<QuerySnapshot> getTasks() {
+  Stream<QuerySnapshot<Map<String, dynamic>>> getTasks() {
     final uid = _auth.currentUser?.uid;
     if (uid == null) {
-      return const Stream.empty();
+      return const Stream<QuerySnapshot<Map<String, dynamic>>>.empty();
     }
 
     return tasks
@@ -46,7 +57,10 @@ class FirestoreService {
 
   /// Update a task
   Future<void> updateTask(String taskId, Map<String, dynamic> data) {
-    return tasks.doc(taskId).update(data);
+    return tasks.doc(taskId).update({
+      ...data,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   /// Delete a task
@@ -63,15 +77,15 @@ class FirestoreService {
   }
 
   /// Get a specific task by ID
-  Future<DocumentSnapshot> getTaskById(String taskId) {
+  Future<DocumentSnapshot<Map<String, dynamic>>> getTaskById(String taskId) {
     return tasks.doc(taskId).get();
   }
 
   /// Get completed tasks only
-  Stream<QuerySnapshot> getCompletedTasks() {
+  Stream<QuerySnapshot<Map<String, dynamic>>> getCompletedTasks() {
     final uid = _auth.currentUser?.uid;
     if (uid == null) {
-      return const Stream.empty();
+      return const Stream<QuerySnapshot<Map<String, dynamic>>>.empty();
     }
 
     return tasks
@@ -82,10 +96,10 @@ class FirestoreService {
   }
 
   /// Get pending tasks only
-  Stream<QuerySnapshot> getPendingTasks() {
+  Stream<QuerySnapshot<Map<String, dynamic>>> getPendingTasks() {
     final uid = _auth.currentUser?.uid;
     if (uid == null) {
-      return const Stream.empty();
+      return const Stream<QuerySnapshot<Map<String, dynamic>>>.empty();
     }
 
     return tasks
