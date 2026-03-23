@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../screens/home_screen.dart';
+import '../../screens/student_home_screen.dart';
 import '../../services/auth_service.dart';
 import 'welcome_screen.dart';
 
@@ -11,20 +11,27 @@ class AuthWrapper extends StatelessWidget {
     return StreamBuilder(
       stream: AuthService().authStateChanges,
       builder: (context, snapshot) {
-        // While waiting for auth state, shows loading or splash if desired.
-        // However, usually connection is fast.
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFEEE9FF), Color(0xFFD9D4FF), Color(0xFFC9C3FF)],
+                ),
+              ),
+              child: Center(
+                child: CircularProgressIndicator(color: Color(0xFF7C6CF6)),
+              ),
+            ),
           );
         }
 
-        // If user is logged in, go to Home
         if (snapshot.hasData) {
-          return const HomeScreen();
+          return const StudentHomeScreen();
         }
 
-        // Otherwise go to Welcome
         return const WelcomeScreen();
       },
     );
