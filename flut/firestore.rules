@@ -76,6 +76,25 @@ service cloud.firestore {
         && data.completed is bool;
     }
 
+    function isValidNotificationPreferencesData(data) {
+      return hasOnlyKeys(data, [
+          'userId',
+          'emailNotifications',
+          'assignmentReminders',
+          'courseUpdates',
+          'weeklyDigest',
+          'pushNotifications',
+          'createdAt',
+          'updatedAt',
+        ])
+        && data.userId == request.auth.uid
+        && data.emailNotifications is bool
+        && data.assignmentReminders is bool
+        && data.courseUpdates is bool
+        && data.weeklyDigest is bool
+        && data.pushNotifications is bool;
+    }
+
     // Assignment submissions are private to the submitting student.
     match /assignment_submissions/{submissionId} {
       allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
@@ -118,6 +137,14 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid
         && isValidTaskData(request.resource.data);
       allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Notification preferences are private to the owner.
+    match /notification_preferences/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && isValidNotificationPreferencesData(request.resource.data);
+      allow delete: if false;
     }
   }
 }
