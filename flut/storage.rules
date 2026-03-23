@@ -5,16 +5,31 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    function isImageUpload() {
+      return request.resource != null
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    function isReasonableSize(maxBytes) {
+      return request.resource != null && request.resource.size <= maxBytes;
+    }
+
     // Student profile photos: users/{uid}/profile.jpg
     match /users/{uid}/{fileName} {
-      allow read: if true;
-      allow write: if isSignedIn() && request.auth.uid == uid;
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow write: if isSignedIn()
+        && request.auth.uid == uid
+        && fileName == 'profile.jpg'
+        && isImageUpload()
+        && isReasonableSize(5 * 1024 * 1024);
     }
 
     // Assignment uploads: assignments/{assignmentId}/{uid}-{timestamp}-{filename}
     match /assignments/{assignmentId}/{fileName} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && fileName.matches('^' + request.auth.uid + '-.*$');
+      allow read: if isSignedIn() && fileName.matches('^' + request.auth.uid + '-.*$');
+      allow write: if isSignedIn()
+        && fileName.matches('^' + request.auth.uid + '-.*$')
+        && isReasonableSize(20 * 1024 * 1024);
     }
 
     // Deny everything else by default.

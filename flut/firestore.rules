@@ -14,12 +14,12 @@ service cloud.firestore {
       return data.keys().hasOnly(allowedKeys);
     }
 
-    // Assignment submissions are private to the submitting student.
-    match /assignment_submissions/{submissionId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn()
-        && request.resource.data.userId == request.auth.uid
-        && hasOnlyKeys(request.resource.data, [
+    function isShortString(value, minLen, maxLen) {
+      return value is string && value.size() >= minLen && value.size() <= maxLen;
+    }
+
+    function isValidSubmissionData(data) {
+      return hasOnlyKeys(data, [
           'assignmentId',
           'userId',
           'answerText',
@@ -28,31 +28,76 @@ service cloud.firestore {
           'status',
           'submittedAt',
           'updatedAt',
-        ]);
+        ])
+        && isShortString(data.assignmentId, 1, 120)
+        && data.userId == request.auth.uid
+        && (!('answerText' in data) || (data.answerText is string && data.answerText.size() <= 10000))
+        && (!('fileUrl' in data) || (data.fileUrl is string && data.fileUrl.size() <= 2000))
+        && (!('fileName' in data) || (data.fileName is string && data.fileName.size() <= 255))
+        && data.status in ['Submitted', 'Late']
+        && data.submittedAt is timestamp;
+    }
+
+    function isValidProfileData(data) {
+      return hasOnlyKeys(data, [
+          'name',
+          'email',
+          'phoneNumber',
+          'course',
+          'avatarUrl',
+          'coursesEnrolled',
+          'learningStreak',
+          'learningGoal',
+          'experienceLevel',
+          'createdAt',
+          'updatedAt',
+        ])
+        && (!('name' in data) || (data.name is string && data.name.size() <= 120))
+        && (!('email' in data) || (data.email is string && data.email.size() <= 254))
+        && (!('phoneNumber' in data) || (data.phoneNumber is string && data.phoneNumber.size() <= 30))
+        && (!('course' in data) || (data.course is string && data.course.size() <= 120))
+        && (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 2000))
+        && (!('learningGoal' in data) || (data.learningGoal is string && data.learningGoal.size() <= 120))
+        && (!('experienceLevel' in data) || (data.experienceLevel is string && data.experienceLevel.size() <= 40))
+        && (!('coursesEnrolled' in data) || (data.coursesEnrolled is int && data.coursesEnrolled >= 0 && data.coursesEnrolled <= 1000))
+        && (!('learningStreak' in data) || (data.learningStreak is int && data.learningStreak >= 0 && data.learningStreak <= 3650));
+    }
+
+    function isValidTaskData(data) {
+      return hasOnlyKeys(data, [
+          'title',
+          'userId',
+          'createdAt',
+          'updatedAt',
+          'completed',
+        ])
+        && data.userId == request.auth.uid
+        && isShortString(data.title, 1, 200)
+        && data.completed is bool;
+    }
+
+    // Assignment submissions are private to the submitting student.
+    match /assignment_submissions/{submissionId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && isValidSubmissionData(request.resource.data)
+        && submissionId == request.resource.data.assignmentId + '_' + request.auth.uid;
       allow update: if isSignedIn()
         && resource.data.userId == request.auth.uid
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.assignmentId == resource.data.assignmentId;
+        && request.resource.data.assignmentId == resource.data.assignmentId
+        && request.resource.data.submittedAt is timestamp
+        && isValidSubmissionData(request.resource.data)
+        && submissionId == resource.data.assignmentId + '_' + request.auth.uid;
       allow delete: if false;
     }
 
     // Student profile is editable by the owner only.
     match /user_profiles/{userId} {
-      allow read, create, update: if isOwner(userId)
-        && request.resource.data.userId == userId
-        && request.resource.data.email is string
-        && (!('name' in request.resource.data)
-            || request.resource.data.name is string)
-        && (!('phoneNumber' in request.resource.data)
-            || request.resource.data.phoneNumber is string)
-        && (!('course' in request.resource.data)
-            || request.resource.data.course is string)
-        && (!('avatarUrl' in request.resource.data)
-            || request.resource.data.avatarUrl is string)
-        && (!('coursesEnrolled' in request.resource.data)
-            || request.resource.data.coursesEnrolled is int)
-        && (!('learningStreak' in request.resource.data)
-            || request.resource.data.learningStreak is int);
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && isValidProfileData(request.resource.data);
       allow delete: if false;
     }
 
@@ -67,18 +112,11 @@ service cloud.firestore {
       allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.title is string
-        && request.resource.data.completed is bool
-        && hasOnlyKeys(request.resource.data, [
-          'title',
-          'userId',
-          'createdAt',
-          'updatedAt',
-          'completed',
-        ]);
+        && isValidTaskData(request.resource.data);
       allow update: if isSignedIn()
         && resource.data.userId == request.auth.uid
-        && request.resource.data.userId == request.auth.uid;
+        && request.resource.data.userId == request.auth.uid
+        && isValidTaskData(request.resource.data);
       allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
   }

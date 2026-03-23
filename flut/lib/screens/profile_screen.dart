@@ -82,7 +82,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadProfile() async {
     if (_user == null) {
       _nameController.text = 'Student';
-      _emailController.text = 'student@email.com';
+      _emailController.text = 'Not signed in';
       _phoneController.text = '';
       _courseController.text = 'Cloud Computing';
       setState(() => _loading = false);

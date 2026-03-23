@@ -1,12 +1,14 @@
 import 'dart:ui';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/auth_service.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/dropdown_field.dart';
 import '../widgets/primary_button.dart';
+import 'email_verification_screen.dart';
 import 'login_screen.dart';
-import 'student_home_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -17,6 +19,8 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen>
     with SingleTickerProviderStateMixin {
+  final AuthService _authService = AuthService();
+
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   final TextEditingController _nameController = TextEditingController();
@@ -33,7 +37,7 @@ class _SignupScreenState extends State<SignupScreen>
 
   bool _isPasswordObscured = true;
   bool _isConfirmPasswordObscured = true;
-  final bool _isLoading = false;
+  bool _isLoading = false;
 
   String? _learningGoal;
   String? _experienceLevel;
@@ -187,10 +191,45 @@ class _SignupScreenState extends State<SignupScreen>
       return;
     }
 
-    if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      _fadeRoute(const StudentHomeScreen()),
-    );
+    setState(() => _isLoading = true);
+
+    try {
+      final user = await _authService.signUp(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
+
+      if (user != null) {
+        await user.updateDisplayName(_nameController.text.trim());
+
+        await FirebaseFirestore.instance
+            .collection('user_profiles')
+            .doc(user.uid)
+            .set({
+          'name': _nameController.text.trim(),
+          'learningGoal': _learningGoal,
+          'experienceLevel': _experienceLevel,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+
+      if (!mounted) return;
+
+      Navigator.of(context).pushAndRemoveUntil(
+        _fadeRoute(const EmailVerificationScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final message = e.toString().replaceFirst('Exception: ', '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
