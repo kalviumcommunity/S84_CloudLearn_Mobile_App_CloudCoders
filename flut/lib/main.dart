@@ -8,6 +8,7 @@ import 'providers/theme_provider.dart';
 import 'screens/get_started_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/email_verification_screen.dart';
+import 'screens/student_home_screen.dart';
 import 'services/auth_service.dart';
 
 /// Main entry point of the CloudLearn application
@@ -70,7 +71,7 @@ class MyApp extends StatelessWidget {
               if (snapshot.hasData) {
                 final user = snapshot.data;
                 if (user != null && user.emailVerified) {
-                  return const HomeScreen();
+                  return const StudentHomeScreen();
                 }
                 return const EmailVerificationScreen();
               }

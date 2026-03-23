@@ -95,134 +95,172 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      return const Scaffold(
-        body: Center(child: Text('Please log in to view this assignment.')),
-      );
-    }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Assignment Details'),
       ),
-      body: FutureBuilder<AssignmentSubmission?>(
-        future: _assignmentService.getSubmission(
-          userId: user.uid,
-          assignmentId: widget.assignment.id,
-        ),
-        builder: (context, snapshot) {
-          final submission = snapshot.data;
-          final status = _assignmentService.resolveStatus(
-            assignment: widget.assignment,
-            submission: submission,
-          );
+      body: user == null
+          ? _AssignmentDetailBody(
+              assignment: widget.assignment,
+              status: _assignmentService.resolveStatus(assignment: widget.assignment),
+              submission: null,
+              selectedFileName: _selectedFileName,
+              answerController: _answerController,
+              submitting: _submitting,
+              onPickFile: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Sign in to upload files.')),
+                );
+              },
+              onSubmit: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Sign in to submit this assignment.')),
+                );
+              },
+            )
+          : FutureBuilder<AssignmentSubmission?>(
+              future: _assignmentService.getSubmission(
+                userId: user.uid,
+                assignmentId: widget.assignment.id,
+              ),
+              builder: (context, snapshot) {
+                final submission = snapshot.data;
+                final status = _assignmentService.resolveStatus(
+                  assignment: widget.assignment,
+                  submission: submission,
+                );
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.assignment.title,
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Due: ${DateFormat('dd MMMM yyyy, hh:mm a').format(widget.assignment.dueDate)}',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _StatusBadge(status: status),
-                const SizedBox(height: 16),
-                Text(
-                  widget.assignment.description,
-                  style: const TextStyle(fontSize: 15, height: 1.45),
-                ),
-                const SizedBox(height: 20),
-                if (submission != null) ...[
-                  const Text(
-                    'Last Submission',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Submitted at: ${DateFormat('dd MMM yyyy, hh:mm a').format(submission.submittedAt)}',
-                  ),
-                  if ((submission.fileName ?? '').isNotEmpty)
-                    Text('File: ${submission.fileName}'),
-                  if ((submission.answerText ?? '').trim().isNotEmpty)
-                    const Text('Text response added'),
-                  const SizedBox(height: 20),
-                ],
-                const Text(
-                  'Upload File (Optional)',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-                if (!StorageService.isEnabled) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    'File upload is currently disabled. Use text answer submission.',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: (_submitting || !StorageService.isEnabled)
-                          ? null
-                          : _pickFile,
-                      icon: const Icon(Icons.attach_file),
-                      label: const Text('Choose File'),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        _selectedFileName ?? 'No file selected',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                const Center(child: Text('OR')),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _answerController,
-                  enabled: !_submitting,
-                  minLines: 6,
-                  maxLines: 10,
-                  decoration: const InputDecoration(
-                    hintText: 'Enter your answer here...',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _submitting ? null : () => _submit(user),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      child: _submitting
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Submit Assignment'),
-                    ),
-                  ),
-                ),
-              ],
+                return _AssignmentDetailBody(
+                  assignment: widget.assignment,
+                  status: status,
+                  submission: submission,
+                  selectedFileName: _selectedFileName,
+                  answerController: _answerController,
+                  submitting: _submitting,
+                  onPickFile: _submitting ? null : _pickFile,
+                  onSubmit: _submitting ? null : () => _submit(user),
+                );
+              },
             ),
-          );
-        },
+    );
+  }
+}
+
+class _AssignmentDetailBody extends StatelessWidget {
+  const _AssignmentDetailBody({
+    required this.assignment,
+    required this.status,
+    required this.submission,
+    required this.selectedFileName,
+    required this.answerController,
+    required this.submitting,
+    required this.onPickFile,
+    required this.onSubmit,
+  });
+
+  final AssignmentItem assignment;
+  final String status;
+  final AssignmentSubmission? submission;
+  final String? selectedFileName;
+  final TextEditingController answerController;
+  final bool submitting;
+  final VoidCallback? onPickFile;
+  final VoidCallback? onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            assignment.title,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Due: ${DateFormat('dd MMMM yyyy, hh:mm a').format(assignment.dueDate)}',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _StatusBadge(status: status),
+          const SizedBox(height: 16),
+          Text(
+            assignment.description,
+            style: const TextStyle(fontSize: 15, height: 1.45),
+          ),
+          const SizedBox(height: 20),
+          if (submission != null) ...[
+            const Text(
+              'Last Submission',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Submitted at: ${DateFormat('dd MMM yyyy, hh:mm a').format(submission!.submittedAt)}',
+            ),
+            if ((submission!.fileName ?? '').isNotEmpty)
+              Text('File: ${submission!.fileName}'),
+            if ((submission!.answerText ?? '').trim().isNotEmpty)
+              const Text('Text response added'),
+            const SizedBox(height: 20),
+          ],
+          const Text(
+            'Upload File',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              ElevatedButton.icon(
+                onPressed: onPickFile,
+                icon: const Icon(Icons.attach_file),
+                label: const Text('Choose File'),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  selectedFileName ?? 'No file selected',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const Center(child: Text('OR')),
+          const SizedBox(height: 20),
+          TextField(
+            controller: answerController,
+            enabled: !submitting,
+            minLines: 6,
+            maxLines: 10,
+            decoration: const InputDecoration(
+              hintText: 'Enter your answer here...',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: onSubmit,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: submitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Submit Assignment'),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
