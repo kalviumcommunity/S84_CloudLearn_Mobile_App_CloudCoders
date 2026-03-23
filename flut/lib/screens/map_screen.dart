@@ -1,131 +1,173 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-class MapScreen extends StatefulWidget {
+class MapScreen extends StatelessWidget {
   const MapScreen({super.key});
-
-  @override
-  State<MapScreen> createState() => _MapScreenState();
-}
-
-class _MapScreenState extends State<MapScreen> {
-  GoogleMapController? _mapController;
-  final Set<Marker> _markers = {};
-  
-  // Default position: San Francisco (Google HQ)
-  static const CameraPosition _kGooglePlex = CameraPosition(
-    target: LatLng(37.42796133580664, -122.085749655962),
-    zoom: 14.4746,
-  );
-
-  bool _locationPermissionGranted = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkLocationPermission();
-  }
-
-  Future<void> _checkLocationPermission() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location services are disabled.')),
-        );
-      }
-      return;
-    }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location permissions are denied')),
-          );
-        }
-        return;
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Location permissions are permanently denied, we cannot request permissions.'),
-          ),
-        );
-      }
-      return;
-    }
-
-    // Permission granted
-    setState(() {
-      _locationPermissionGranted = true;
-    });
-
-    _getCurrentLocation();
-  }
-
-  Future<void> _getCurrentLocation() async {
-    try {
-      Position position = await Geolocator.getCurrentPosition();
-      
-      final LatLng currentLatLng = LatLng(position.latitude, position.longitude);
-
-      _mapController?.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(
-            target: currentLatLng,
-            zoom: 15,
-          ),
-        ),
-      );
-
-      setState(() {
-        _markers.add(
-          Marker(
-            markerId: const MarkerId('currentLocation'),
-            position: currentLatLng,
-            infoWindow: const InfoWindow(title: 'You are here!'),
-          ),
-        );
-      });
-    } catch (e) {
-      debugPrint('Error getting location: $e');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Campus Map & Events'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        title: Text(
+          'Campus Map & Events',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w700,
+            fontSize: 20,
+            color: const Color(0xFF2D1A4D),
+          ),
+        ),
       ),
-      body: GoogleMap(
-        mapType: MapType.normal,
-        initialCameraPosition: _kGooglePlex,
-        myLocationEnabled: _locationPermissionGranted,
-        myLocationButtonEnabled: true,
-        markers: _markers,
-        onMapCreated: (GoogleMapController controller) {
-          _mapController = controller;
-          if (_locationPermissionGranted) {
-            _getCurrentLocation();
-          }
-        },
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFEEE9FF), Color(0xFFD9D4FF), Color(0xFFC9C3FF)],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 96,
+                    height: 96,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF7C6CF6).withValues(alpha: 0.2),
+                          blurRadius: 24,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.map_rounded,
+                      size: 48,
+                      color: Color(0xFF7C6CF6),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  Text(
+                    'Campus Map',
+                    style: GoogleFonts.poppins(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF2D1A4D),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Map view is available on mobile.\nOpen the app on your phone to explore campus events and locations.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: const Color(0xFF2D1A4D).withValues(alpha: 0.55),
+                      height: 1.6,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x0D000000),
+                          blurRadius: 12,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        _EventTile(
+                          icon: Icons.event_rounded,
+                          title: 'Cloud Summit 2026',
+                          subtitle: 'Main Hall • Apr 5, 10:00 AM',
+                        ),
+                        const Divider(height: 20),
+                        _EventTile(
+                          icon: Icons.groups_rounded,
+                          title: 'Study Group: AWS',
+                          subtitle: 'Library Room 3 • Apr 7, 2:00 PM',
+                        ),
+                        const Divider(height: 20),
+                        _EventTile(
+                          icon: Icons.laptop_rounded,
+                          title: 'Hackathon Kickoff',
+                          subtitle: 'Innovation Lab • Apr 10, 9:00 AM',
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _getCurrentLocation,
-        label: const Text('Find Me'),
-        icon: const Icon(Icons.my_location),
-      ),
+    );
+  }
+}
+
+class _EventTile extends StatelessWidget {
+  const _EventTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0EDFF),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: const Color(0xFF7C6CF6), size: 20),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: const Color(0xFF2D1A4D),
+                ),
+              ),
+              Text(
+                subtitle,
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  color: const Color(0xFF9E9E9E),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
