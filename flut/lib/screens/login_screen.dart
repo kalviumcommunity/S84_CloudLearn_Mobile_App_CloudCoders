@@ -3,8 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/primary_button.dart';
+import 'home_screen.dart';
 import 'signup_screen.dart';
-import 'student_home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,7 +27,7 @@ class _LoginScreenState extends State<LoginScreen>
   late final Animation<double> _shakeAnimation;
 
   bool _isPasswordObscured = true;
-  final bool _isLoading = false;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -117,10 +117,34 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
-    if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      _fadeRoute(const StudentHomeScreen()),
-    );
+    setState(() => _isLoading = true);
+
+    try {
+      final user = await _authService.signIn(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
+
+      if (!mounted) return;
+
+      if (user != null) {
+        Navigator.of(context).pushAndRemoveUntil(
+          _fadeRoute(const HomeScreen()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      await _shakeController.forward(from: 0);
+      final message = e.toString().replaceFirst('Exception: ', '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Future<void> _forgotPassword() async {
