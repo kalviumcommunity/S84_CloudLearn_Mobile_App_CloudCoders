@@ -76,8 +76,8 @@ class ProfileService {
   Future<void> saveProfile(String uid, StudentProfile profile) async {
     final ref = _doc(uid);
     final existing = await ref.get();
-    final data = {
-      ...profile.toMap(),
+    final data = <String, dynamic>{
+      ...profile.toMap(uid),
       if (!existing.exists) 'createdAt': FieldValue.serverTimestamp(),
     };
     await ref.set(data, SetOptions(merge: true));

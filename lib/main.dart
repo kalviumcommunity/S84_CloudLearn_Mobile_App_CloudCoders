@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 
-// Import screens
-import 'screens/auth_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/get_started_screen.dart';
 
 void main() async {
   // Ensure Flutter widgets are initialized
@@ -25,16 +22,13 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Firebase Auth Demo',
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (ctx, snapshot) {
-          if (snapshot.hasData) {
-            return HomeScreen();
-          }
-          return AuthScreen();
-        },
+      title: 'CloudLearn',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
+        useMaterial3: true,
       ),
+      home: const GetStartedScreen(),
     );
   }
 }
