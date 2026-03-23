@@ -6,7 +6,6 @@ import 'firebase_options.dart';
 import 'providers/task_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/get_started_screen.dart';
-import 'screens/home_screen.dart';
 import 'screens/email_verification_screen.dart';
 import 'screens/student_home_screen.dart';
 import 'services/auth_service.dart';
@@ -62,8 +61,17 @@ class MyApp extends StatelessWidget {
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Scaffold(
-                  body: Center(
-                    child: CircularProgressIndicator(),
+                  body: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xFFEEE9FF), Color(0xFFD9D4FF), Color(0xFFC9C3FF)],
+                      ),
+                    ),
+                    child: Center(
+                      child: CircularProgressIndicator(color: Color(0xFF7C6CF6)),
+                    ),
                   ),
                 );
               }
