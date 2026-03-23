@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -7,117 +8,129 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = AuthService().currentUser;
+    final name = user?.displayName?.split(' ').first ?? 'Learner';
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            const SizedBox(height: 60),
-            // Welcome Header
-            Text(
-              'Welcome Back,',
-              style: TextStyle(
-                fontSize: 20,
-                color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFEEE9FF), Color(0xFFD9D4FF), Color(0xFFC9C3FF)],
+        ),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Welcome Back,',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: const Color(0xFF2D1A4D).withValues(alpha: 0.55),
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              user?.displayName ?? "Learner",
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
+              const SizedBox(height: 2),
+              Text(
+                name,
+                style: GoogleFonts.poppins(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF7C6CF6),
+                ),
               ),
-            ),
-            const SizedBox(height: 40),
-            
-            // Quick Actions Grid
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                children: [
-                  _buildDashboardCard(
-                    context,
-                    icon: Icons.school,
-                    label: 'My Courses',
-                    color: Colors.blueAccent,
-                    onTap: () {},
-                  ),
-                  _buildDashboardCard(
-                    context,
-                    icon: Icons.emoji_events,
-                    label: 'Achievements',
-                    color: Colors.amber,
-                    onTap: () {},
-                  ),
-                  _buildDashboardCard(
-                    context,
-                    icon: Icons.people,
-                    label: 'Community',
-                    color: Colors.green,
-                    onTap: () {},
-                  ),
-                  _buildDashboardCard(
-                    context,
-                    icon: Icons.settings,
-                    label: 'Settings',
-                    color: Colors.grey,
-                    onTap: () {},
-                  ),
-                ],
+              const SizedBox(height: 28),
+              Expanded(
+                child: GridView.count(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 14,
+                  mainAxisSpacing: 14,
+                  childAspectRatio: 1.1,
+                  children: const [
+                    _DashCard(
+                      icon: Icons.school_rounded,
+                      label: 'My Courses',
+                      iconColor: Color(0xFF7C6CF6),
+                      bgColor: Color(0xFFF0EDFF),
+                    ),
+                    _DashCard(
+                      icon: Icons.emoji_events_rounded,
+                      label: 'Achievements',
+                      iconColor: Color(0xFFE8A020),
+                      bgColor: Color(0xFFFFF8EC),
+                    ),
+                    _DashCard(
+                      icon: Icons.people_alt_rounded,
+                      label: 'Community',
+                      iconColor: Color(0xFF00A896),
+                      bgColor: Color(0xFFEBFAF8),
+                    ),
+                    _DashCard(
+                      icon: Icons.settings_rounded,
+                      label: 'Settings',
+                      iconColor: Color(0xFF9E9E9E),
+                      bgColor: Color(0xFFF5F5F5),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildDashboardCard(BuildContext context, {
-    required IconData icon, 
-    required String label, 
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+class _DashCard extends StatelessWidget {
+  const _DashCard({
+    required this.icon,
+    required this.label,
+    required this.iconColor,
+    required this.bgColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color iconColor;
+  final Color bgColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: bgColor,
+              shape: BoxShape.circle,
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 32, color: color),
+            child: Icon(icon, size: 30, color: iconColor),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: const Color(0xFF2D1A4D),
             ),
-            const SizedBox(height: 12),
-            Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

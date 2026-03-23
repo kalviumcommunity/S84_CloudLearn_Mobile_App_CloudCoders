@@ -81,8 +81,9 @@ class _DropdownFieldState extends State<DropdownField> {
         focusNode: _focusNode,
         validator: widget.validator,
         isExpanded: true,
+        dropdownColor: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        icon: const Icon(Icons.keyboard_arrow_down_rounded),
+        icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF7C3AED)),
         decoration: InputDecoration(
           labelText: widget.label,
           labelStyle: GoogleFonts.poppins(
@@ -113,7 +114,14 @@ class _DropdownFieldState extends State<DropdownField> {
             .map(
               (item) => DropdownMenuItem<String>(
                 value: item,
-                child: Text(item),
+                child: Text(
+                  item,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF2B1B4D),
+                  ),
+                ),
               ),
             )
             .toList(),
