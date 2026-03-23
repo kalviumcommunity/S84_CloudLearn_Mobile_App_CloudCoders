@@ -89,6 +89,7 @@ class NotificationPreferencesService {
   /// Update weekly digest preference
   Future<void> setWeeklyDigest(bool enabled) {
     return _updatePreference('weeklyDigest', enabled);
+
   }
 
   /// Update push notifications preference
@@ -96,7 +97,7 @@ class NotificationPreferencesService {
     return _updatePreference('pushNotifications', enabled);
   }
 
-  /// Generic preference update helper
+  /// Generic preference update helper -----------g
   /// 
   /// Updates a single preference field with server timestamp
   Future<void> _updatePreference(String field, dynamic value) {
