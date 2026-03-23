@@ -7,10 +7,24 @@ import 'dart:io';
 class StorageService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
+  /// Keep false for projects where Firebase Storage is not enabled (e.g. Spark without billing).
+  static const bool isEnabled = false;
+
+  static const String unavailableMessage =
+      'File upload is disabled for this project because Firebase Storage is not enabled. '
+      'Use text submission/profile details only, or enable Storage by upgrading billing.';
+
+  void _ensureEnabled() {
+    if (!isEnabled) {
+      throw Exception(unavailableMessage);
+    }
+  }
+
   /// Upload a file to Firebase Storage
   /// 
   /// Returns the download URL of the uploaded file
   Future<String> uploadFile(File file, String path) async {
+    _ensureEnabled();
     try {
       final storageRef = _storage.ref().child(path);
       final uploadTask = await storageRef.putFile(file);
@@ -39,6 +53,7 @@ class StorageService {
 
   /// Delete a file from Firebase Storage
   Future<void> deleteFile(String path) async {
+    _ensureEnabled();
     try {
       final storageRef = _storage.ref().child(path);
       await storageRef.delete();
@@ -49,6 +64,7 @@ class StorageService {
 
   /// Get download URL for a file
   Future<String> getDownloadUrl(String path) async {
+    _ensureEnabled();
     try {
       final storageRef = _storage.ref().child(path);
       return await storageRef.getDownloadURL();

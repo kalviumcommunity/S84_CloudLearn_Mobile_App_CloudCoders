@@ -125,6 +125,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
       return;
     }
+    if (!StorageService.isEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(StorageService.unavailableMessage)),
+      );
+      return;
+    }
     final pickedFile =
         await _picker.pickImage(source: ImageSource.gallery, imageQuality: 75);
     if (pickedFile == null) return;
@@ -263,6 +269,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _pickAndUploadImage() async {
     if (_user == null || _uploading) return;
+
+    if (!StorageService.isEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(StorageService.unavailableMessage)),
+      );
+      return;
+    }
 
     final pickedFile = await _picker.pickImage(
       source: ImageSource.gallery,
