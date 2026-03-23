@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/primary_button.dart';
-import 'home_screen.dart';
+import 'student_home_screen.dart';
 import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -129,7 +129,7 @@ class _LoginScreenState extends State<LoginScreen>
 
       if (user != null) {
         Navigator.of(context).pushAndRemoveUntil(
-          _fadeRoute(const HomeScreen()),
+          _fadeRoute(const StudentHomeScreen()),
           (route) => false,
         );
       }
