@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../services/assignment_service.dart';
+import '../services/storage_service.dart';
 
 class AssignmentDetailScreen extends StatefulWidget {
   const AssignmentDetailScreen({
@@ -34,6 +35,13 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
   }
 
   Future<void> _pickFile() async {
+    if (!StorageService.isEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(StorageService.unavailableMessage)),
+      );
+      return;
+    }
+
     final result = await FilePicker.platform.pickFiles(
       withData: false,
       allowMultiple: false,
@@ -149,14 +157,26 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
                   const SizedBox(height: 20),
                 ],
                 const Text(
-                  'Upload File',
+                  'Upload File (Optional)',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
+                if (!StorageService.isEnabled) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'File upload is currently disabled. Use text answer submission.',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     ElevatedButton.icon(
-                      onPressed: _submitting ? null : _pickFile,
+                      onPressed: (_submitting || !StorageService.isEnabled)
+                          ? null
+                          : _pickFile,
                       icon: const Icon(Icons.attach_file),
                       label: const Text('Choose File'),
                     ),
