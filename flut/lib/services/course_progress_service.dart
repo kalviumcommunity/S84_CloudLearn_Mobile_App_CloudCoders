@@ -62,41 +62,51 @@ class CourseProgressService {
     return uid;
   }
 
-  /// Load watched video IDs for a course. Returns empty set if none saved.
+  /// Load watched video IDs for a course. Returns empty set if none saved or on error.
   Future<Set<String>> getWatchedVideoIds(String courseId) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return {};
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return {};
 
-    final doc = await _col.doc(_docId(uid, courseId)).get();
-    if (!doc.exists || doc.data() == null) return {};
+      final doc = await _col
+          .doc(_docId(uid, courseId))
+          .get()
+          .timeout(const Duration(seconds: 8));
+      if (!doc.exists || doc.data() == null) return {};
 
-    final raw = doc.data()!['watchedVideoIds'];
-    if (raw is List) return Set<String>.from(raw);
-    return {};
+      final raw = doc.data()!['watchedVideoIds'];
+      if (raw is List) return Set<String>.from(raw);
+      return {};
+    } catch (_) {
+      return {};
+    }
   }
 
   /// Save the full set of watched video IDs for a course.
-  /// Called every time a user marks/unmarks a video.
   Future<void> saveWatchedVideoIds({
     required String courseId,
     required String courseTitle,
     required Set<String> watchedIds,
     required int totalVideos,
   }) async {
-    final uid = _uid;
-    await _col.doc(_docId(uid, courseId)).set({
-      'userId': uid,
-      'courseId': courseId,
-      'courseTitle': courseTitle,
-      'watchedVideoIds': watchedIds.toList(),
-      'watchedCount': watchedIds.length,
-      'totalVideos': totalVideos,
-      'progressFraction': totalVideos == 0
-          ? 0.0
-          : (watchedIds.length / totalVideos).clamp(0.0, 1.0),
-      'lastAccessedAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    try {
+      final uid = _uid;
+      await _col.doc(_docId(uid, courseId)).set({
+        'userId': uid,
+        'courseId': courseId,
+        'courseTitle': courseTitle,
+        'watchedVideoIds': watchedIds.toList(),
+        'watchedCount': watchedIds.length,
+        'totalVideos': totalVideos,
+        'progressFraction': totalVideos == 0
+            ? 0.0
+            : (watchedIds.length / totalVideos).clamp(0.0, 1.0),
+        'lastAccessedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true)).timeout(const Duration(seconds: 8));
+    } catch (_) {
+      // Silent fail — progress will sync next time
+    }
   }
 
   /// Stream of all course progress entries for the current user.
