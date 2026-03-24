@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../services/course_progress_service.dart';
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 const _kPurple = Color(0xFF6C5CE7);
 const _kDeep = Color(0xFF2D1A4D);
@@ -124,17 +126,31 @@ class CourseDetailScreen extends StatefulWidget {
 }
 
 class _CourseDetailScreenState extends State<CourseDetailScreen> {
-  late Set<String> _watchedIds;
   late List<CourseModule> _modules;
+  Set<String> _watchedIds = {};
+  bool _loading = true;
+
+  final _progressService = CourseProgressService();
+
+  // Slug used as Firestore key (spaces → dashes, lowercase)
+  String get _courseId =>
+      widget.title.toLowerCase().replaceAll(' ', '-');
 
   @override
   void initState() {
     super.initState();
     _modules = courseModules[widget.title] ?? [];
-    // Pre-mark videos as watched based on existing progress
-    final allVideos = _modules.expand((m) => m.videos).toList();
-    final watchedCount = (allVideos.length * widget.progress).round();
-    _watchedIds = allVideos.take(watchedCount).map((v) => v.id).toSet();
+    _loadProgress();
+  }
+
+  Future<void> _loadProgress() async {
+    final saved = await _progressService.getWatchedVideoIds(_courseId);
+    if (mounted) {
+      setState(() {
+        _watchedIds = saved;
+        _loading = false;
+      });
+    }
   }
 
   int get _totalVideos =>
@@ -143,7 +159,8 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
   double get _currentProgress =>
       _totalVideos == 0 ? 0 : _watchedIds.length / _totalVideos;
 
-  bool get _isCompleted => _watchedIds.length >= _totalVideos && _totalVideos > 0;
+  bool get _isCompleted =>
+      _watchedIds.length >= _totalVideos && _totalVideos > 0;
 
   void _toggleWatched(String id) {
     setState(() {
@@ -153,6 +170,13 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
         _watchedIds.add(id);
       }
     });
+    // Persist to Firestore after every toggle
+    _progressService.saveWatchedVideoIds(
+      courseId: _courseId,
+      courseTitle: widget.title,
+      watchedIds: Set.from(_watchedIds),
+      totalVideos: _totalVideos,
+    );
   }
 
   Future<void> _openVideo(String url) async {
@@ -164,6 +188,15 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: _kBg,
+        body: const Center(
+          child: CircularProgressIndicator(color: _kPurple),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: _kBg,
       body: CustomScrollView(
