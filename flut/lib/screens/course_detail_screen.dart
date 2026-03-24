@@ -42,6 +42,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
   }
 
   Future<void> _loadProgress() async {
+    // getWatchedVideoIds is cache-first — instant if cache is warm
     final ids = await _progressService.getWatchedVideoIds(widget.course.id);
     final times = await _progressService.getLessonCompletedAt(widget.course.id);
     if (mounted) setState(() { _watchedIds = ids; _lessonCompletedAt = times; _loading = false; });
@@ -53,22 +54,23 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
 
   void _toggleLesson(String id) {
     final wasWatched = _watchedIds.contains(id);
+    // Update cache + persist to Firestore (non-blocking)
+    _progressService.toggleLesson(
+      courseId: widget.course.id,
+      courseTitle: widget.course.title,
+      lessonId: id,
+      totalVideos: _totalLessons,
+    );
+    // Update local UI state immediately from cache
     setState(() {
       if (wasWatched) {
         _watchedIds.remove(id);
         _lessonCompletedAt.remove(id);
       } else {
         _watchedIds.add(id);
-        _lessonCompletedAt[id] = DateTime.now(); // optimistic local time
+        _lessonCompletedAt[id] = DateTime.now();
       }
     });
-    _progressService.saveWatchedVideoIds(
-      courseId: widget.course.id,
-      courseTitle: widget.course.title,
-      watchedIds: Set.from(_watchedIds),
-      totalVideos: _totalLessons,
-      newlyCompletedId: wasWatched ? null : id, // record server timestamp only on completion
-    );
   }
 
   void _openLesson(LessonContent lesson) {
