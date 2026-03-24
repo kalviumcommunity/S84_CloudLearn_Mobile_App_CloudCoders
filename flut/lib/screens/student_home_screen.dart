@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'assignments_screen.dart';
+import 'community_screen.dart';
 import 'progress_analytics_screen.dart';
 import 'profile_screen.dart';
 import 'my_courses_screen.dart';
@@ -122,6 +123,9 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
       case 'Progress':
         Navigator.of(context)
             .push(MaterialPageRoute(builder: (_) => const ProgressAnalyticsScreen()));
+      case 'Community':
+        Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const CommunityScreen()));
     }
   }
 
