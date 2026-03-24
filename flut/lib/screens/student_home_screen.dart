@@ -6,6 +6,7 @@ import 'assignments_screen.dart';
 import 'progress_analytics_screen.dart';
 import 'profile_screen.dart';
 import 'my_courses_screen.dart';
+import 'notifications_screen.dart';
 
 // ── Shared constants ──────────────────────────────────────────────────────────
 const _kPurple = Color(0xFF6C5CE7);
@@ -149,8 +150,14 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                     greeting: _greeting(),
                     userName: _userName,
                     notificationCount: _notificationCount,
-                    onNotificationTap: () =>
-                        setState(() => _notificationCount = 0),
+                    onNotificationTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const NotificationsScreen(),
+                          ),
+                        );
+                        setState(() => _notificationCount = 0);
+                      },
                   ),
                   const SizedBox(height: 24),
 
