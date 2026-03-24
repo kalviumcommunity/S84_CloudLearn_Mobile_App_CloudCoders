@@ -6,33 +6,36 @@ class CourseProgress {
   const CourseProgress({
     required this.courseId,
     required this.courseTitle,
-    required this.completedModules,
-    required this.totalModules,
+    required this.watchedVideoIds,
+    required this.totalVideos,
     required this.lastAccessedAt,
   });
 
   final String courseId;
   final String courseTitle;
-  final int completedModules;
-  final int totalModules;
+  final List<String> watchedVideoIds;
+  final int totalVideos;
   final DateTime lastAccessedAt;
 
-  /// Progress as a value between 0.0 and 1.0
-  double get progressFraction =>
-      totalModules == 0 ? 0.0 : (completedModules / totalModules).clamp(0.0, 1.0);
+  int get watchedCount => watchedVideoIds.length;
 
-  /// Progress as a percentage string e.g. "60%"
+  double get progressFraction =>
+      totalVideos == 0 ? 0.0 : (watchedCount / totalVideos).clamp(0.0, 1.0);
+
   String get progressLabel => '${(progressFraction * 100).round()}%';
 
-  bool get isCompleted => completedModules >= totalModules && totalModules > 0;
+  bool get isCompleted => watchedCount >= totalVideos && totalVideos > 0;
 
   factory CourseProgress.fromMap(Map<String, dynamic> map) {
     final ts = map['lastAccessedAt'];
+    final rawIds = map['watchedVideoIds'];
     return CourseProgress(
       courseId: map['courseId'] as String? ?? '',
       courseTitle: map['courseTitle'] as String? ?? 'Untitled Course',
-      completedModules: map['completedModules'] as int? ?? 0,
-      totalModules: map['totalModules'] as int? ?? 1,
+      watchedVideoIds: rawIds is List
+          ? List<String>.from(rawIds)
+          : [],
+      totalVideos: map['totalVideos'] as int? ?? 0,
       lastAccessedAt: ts is Timestamp ? ts.toDate() : DateTime.now(),
     );
   }
@@ -40,9 +43,8 @@ class CourseProgress {
 
 /// Course Progress Service
 ///
-/// Tracks per-course module completion progress in Firestore.
-/// Stored in 'course_progress' collection, keyed by userId_courseId.
-/// Fully independent — does not touch any existing service or screen.
+/// Persists watched video IDs per user per course in Firestore.
+/// Document key: userId_courseId in 'course_progress' collection.
 class CourseProgressService {
   CourseProgressService({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -60,47 +62,38 @@ class CourseProgressService {
     return uid;
   }
 
-  /// Record module completion for a course.
-  /// Creates the progress document if it doesn't exist yet.
-  Future<void> markModuleCompleted({
+  /// Load watched video IDs for a course. Returns empty set if none saved.
+  Future<Set<String>> getWatchedVideoIds(String courseId) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return {};
+
+    final doc = await _col.doc(_docId(uid, courseId)).get();
+    if (!doc.exists || doc.data() == null) return {};
+
+    final raw = doc.data()!['watchedVideoIds'];
+    if (raw is List) return Set<String>.from(raw);
+    return {};
+  }
+
+  /// Save the full set of watched video IDs for a course.
+  /// Called every time a user marks/unmarks a video.
+  Future<void> saveWatchedVideoIds({
     required String courseId,
     required String courseTitle,
-    required int totalModules,
-    required int completedModules,
+    required Set<String> watchedIds,
+    required int totalVideos,
   }) async {
     final uid = _uid;
     await _col.doc(_docId(uid, courseId)).set({
       'userId': uid,
       'courseId': courseId,
       'courseTitle': courseTitle,
-      'completedModules': completedModules,
-      'totalModules': totalModules,
-      'lastAccessedAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-  }
-
-  /// Increment completed modules by 1 (convenience method).
-  Future<void> incrementProgress({
-    required String courseId,
-    required String courseTitle,
-    required int totalModules,
-  }) async {
-    final uid = _uid;
-    final docId = _docId(uid, courseId);
-    final existing = await _col.doc(docId).get();
-
-    final current = existing.exists
-        ? (existing.data()?['completedModules'] as int? ?? 0)
-        : 0;
-    final updated = (current + 1).clamp(0, totalModules);
-
-    await _col.doc(docId).set({
-      'userId': uid,
-      'courseId': courseId,
-      'courseTitle': courseTitle,
-      'completedModules': updated,
-      'totalModules': totalModules,
+      'watchedVideoIds': watchedIds.toList(),
+      'watchedCount': watchedIds.length,
+      'totalVideos': totalVideos,
+      'progressFraction': totalVideos == 0
+          ? 0.0
+          : (watchedIds.length / totalVideos).clamp(0.0, 1.0),
       'lastAccessedAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
@@ -138,16 +131,17 @@ class CourseProgressService {
     final snapshot = await _col.where('userId', isEqualTo: uid).get();
     if (snapshot.docs.isEmpty) return 0.0;
 
-    int totalCompleted = 0;
-    int totalModules = 0;
+    int totalWatched = 0;
+    int totalVideos = 0;
 
     for (final doc in snapshot.docs) {
       final data = doc.data();
-      totalCompleted += data['completedModules'] as int? ?? 0;
-      totalModules += data['totalModules'] as int? ?? 0;
+      final raw = data['watchedVideoIds'];
+      totalWatched += raw is List ? raw.length : 0;
+      totalVideos += data['totalVideos'] as int? ?? 0;
     }
 
-    if (totalModules == 0) return 0.0;
-    return (totalCompleted / totalModules).clamp(0.0, 1.0);
+    if (totalVideos == 0) return 0.0;
+    return (totalWatched / totalVideos).clamp(0.0, 1.0);
   }
 }
