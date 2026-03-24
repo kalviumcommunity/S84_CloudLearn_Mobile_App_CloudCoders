@@ -9,6 +9,7 @@ class CourseProgress {
     required this.watchedVideoIds,
     required this.totalVideos,
     required this.lastAccessedAt,
+    this.lessonCompletedAt = const {},
   });
 
   final String courseId;
@@ -16,6 +17,9 @@ class CourseProgress {
   final List<String> watchedVideoIds;
   final int totalVideos;
   final DateTime lastAccessedAt;
+
+  /// Maps lessonId → DateTime when it was completed
+  final Map<String, DateTime> lessonCompletedAt;
 
   int get watchedCount => watchedVideoIds.length;
 
@@ -29,21 +33,33 @@ class CourseProgress {
   factory CourseProgress.fromMap(Map<String, dynamic> map) {
     final ts = map['lastAccessedAt'];
     final rawIds = map['watchedVideoIds'];
+
+    // Parse per-lesson completion timestamps
+    final rawTimes = map['lessonCompletedAt'];
+    final Map<String, DateTime> completedAt = {};
+    if (rawTimes is Map) {
+      rawTimes.forEach((key, value) {
+        if (value is Timestamp) {
+          completedAt[key.toString()] = value.toDate();
+        }
+      });
+    }
+
     return CourseProgress(
       courseId: map['courseId'] as String? ?? '',
       courseTitle: map['courseTitle'] as String? ?? 'Untitled Course',
-      watchedVideoIds: rawIds is List
-          ? List<String>.from(rawIds)
-          : [],
+      watchedVideoIds: rawIds is List ? List<String>.from(rawIds) : [],
       totalVideos: map['totalVideos'] as int? ?? 0,
       lastAccessedAt: ts is Timestamp ? ts.toDate() : DateTime.now(),
+      lessonCompletedAt: completedAt,
     );
   }
 }
 
 /// Course Progress Service
 ///
-/// Persists watched video IDs per user per course in Firestore.
+/// Persists watched video IDs + per-lesson completion timestamps per user per
+/// course in Firestore.
 /// Document key: userId_courseId in 'course_progress' collection.
 class CourseProgressService {
   CourseProgressService({FirebaseFirestore? firestore})
@@ -82,16 +98,44 @@ class CourseProgressService {
     }
   }
 
+  /// Load full progress including per-lesson timestamps.
+  Future<Map<String, DateTime>> getLessonCompletedAt(String courseId) async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return {};
+
+      final doc = await _col
+          .doc(_docId(uid, courseId))
+          .get()
+          .timeout(const Duration(seconds: 8));
+      if (!doc.exists || doc.data() == null) return {};
+
+      final raw = doc.data()!['lessonCompletedAt'];
+      if (raw is! Map) return {};
+
+      final result = <String, DateTime>{};
+      raw.forEach((key, value) {
+        if (value is Timestamp) result[key.toString()] = value.toDate();
+      });
+      return result;
+    } catch (_) {
+      return {};
+    }
+  }
+
   /// Save the full set of watched video IDs for a course.
+  /// [newlyCompletedId] — if provided, records the completion timestamp for
+  /// that lesson (only written once; existing timestamps are preserved via merge).
   Future<void> saveWatchedVideoIds({
     required String courseId,
     required String courseTitle,
     required Set<String> watchedIds,
     required int totalVideos,
+    String? newlyCompletedId,
   }) async {
     try {
       final uid = _uid;
-      await _col.doc(_docId(uid, courseId)).set({
+      final data = <String, dynamic>{
         'userId': uid,
         'courseId': courseId,
         'courseTitle': courseTitle,
@@ -103,7 +147,17 @@ class CourseProgressService {
             : (watchedIds.length / totalVideos).clamp(0.0, 1.0),
         'lastAccessedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true)).timeout(const Duration(seconds: 8));
+      };
+
+      // Record per-lesson completion timestamp (server time)
+      if (newlyCompletedId != null) {
+        data['lessonCompletedAt.$newlyCompletedId'] = FieldValue.serverTimestamp();
+      }
+
+      await _col
+          .doc(_docId(uid, courseId))
+          .set(data, SetOptions(merge: true))
+          .timeout(const Duration(seconds: 8));
     } catch (_) {
       // Silent fail — progress will sync next time
     }

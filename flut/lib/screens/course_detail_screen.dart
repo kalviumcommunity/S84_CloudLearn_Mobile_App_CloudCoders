@@ -32,6 +32,7 @@ class CourseDetailScreen extends StatefulWidget {
 class _CourseDetailScreenState extends State<CourseDetailScreen> {
   final _progressService = CourseProgressService();
   Set<String> _watchedIds = {};
+  Map<String, DateTime> _lessonCompletedAt = {};
   bool _loading = true;
 
   @override
@@ -42,7 +43,8 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
 
   Future<void> _loadProgress() async {
     final ids = await _progressService.getWatchedVideoIds(widget.course.id);
-    if (mounted) setState(() { _watchedIds = ids; _loading = false; });
+    final times = await _progressService.getLessonCompletedAt(widget.course.id);
+    if (mounted) setState(() { _watchedIds = ids; _lessonCompletedAt = times; _loading = false; });
   }
 
   int get _totalLessons => widget.course.totalLessons;
@@ -50,15 +52,22 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
   bool get _isCompleted => _watchedIds.length >= _totalLessons && _totalLessons > 0;
 
   void _toggleLesson(String id) {
+    final wasWatched = _watchedIds.contains(id);
     setState(() {
-      if (_watchedIds.contains(id)) _watchedIds.remove(id);
-      else _watchedIds.add(id);
+      if (wasWatched) {
+        _watchedIds.remove(id);
+        _lessonCompletedAt.remove(id);
+      } else {
+        _watchedIds.add(id);
+        _lessonCompletedAt[id] = DateTime.now(); // optimistic local time
+      }
     });
     _progressService.saveWatchedVideoIds(
       courseId: widget.course.id,
       courseTitle: widget.course.title,
       watchedIds: Set.from(_watchedIds),
       totalVideos: _totalLessons,
+      newlyCompletedId: wasWatched ? null : id, // record server timestamp only on completion
     );
   }
 
@@ -68,6 +77,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
         lesson: lesson,
         accentColor: widget.color,
         isCompleted: _watchedIds.contains(lesson.id),
+        completedAt: _lessonCompletedAt[lesson.id],
         onMarkComplete: () => _toggleLesson(lesson.id),
       ),
     ));
@@ -394,11 +404,13 @@ class LessonDetailScreen extends StatefulWidget {
     required this.accentColor,
     required this.isCompleted,
     required this.onMarkComplete,
+    this.completedAt,
   });
   final LessonContent lesson;
   final Color accentColor;
   final bool isCompleted;
   final VoidCallback onMarkComplete;
+  final DateTime? completedAt;
 
   @override
   State<LessonDetailScreen> createState() => _LessonDetailScreenState();
@@ -406,11 +418,13 @@ class LessonDetailScreen extends StatefulWidget {
 
 class _LessonDetailScreenState extends State<LessonDetailScreen> {
   late bool _done;
+  DateTime? _completedAt;
 
   @override
   void initState() {
     super.initState();
     _done = widget.isCompleted;
+    _completedAt = widget.completedAt;
   }
 
   Future<void> _openVideo() async {
@@ -422,9 +436,17 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
 
   void _markDone() {
     if (!_done) {
-      setState(() => _done = true);
+      final now = DateTime.now();
+      setState(() { _done = true; _completedAt = now; });
       widget.onMarkComplete();
     }
+  }
+
+  String _formatCompletedAt(DateTime dt) {
+    final months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    return '${months[dt.month - 1]} ${dt.day}, ${dt.year} at $h:$m';
   }
 
   @override
@@ -572,19 +594,32 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
           SizedBox(
             width: double.infinity,
             child: _done
-                ? Container(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      color: _kGreen.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: _kGreen.withValues(alpha: 0.4)),
+                ? Column(children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: _kGreen.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: _kGreen.withValues(alpha: 0.4)),
+                      ),
+                      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        const Icon(Icons.check_circle_rounded, color: _kGreen, size: 20),
+                        const SizedBox(width: 8),
+                        Text('Lesson Completed', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: _kGreen)),
+                      ]),
                     ),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      const Icon(Icons.check_circle_rounded, color: _kGreen, size: 20),
-                      const SizedBox(width: 8),
-                      Text('Lesson Completed', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: _kGreen)),
-                    ]),
-                  )
+                    if (_completedAt != null) ...[
+                      const SizedBox(height: 8),
+                      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(Icons.access_time_rounded, size: 13, color: _kDeep.withValues(alpha: 0.4)),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Completed on ${_formatCompletedAt(_completedAt!)}',
+                          style: GoogleFonts.poppins(fontSize: 11, color: _kDeep.withValues(alpha: 0.45)),
+                        ),
+                      ]),
+                    ],
+                  ])
                 : FilledButton.icon(
                     onPressed: _markDone,
                     icon: const Icon(Icons.check_rounded, size: 18),
