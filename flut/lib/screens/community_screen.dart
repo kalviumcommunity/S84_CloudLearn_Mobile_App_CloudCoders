@@ -1,5 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../data/course_data.dart';
+import '../services/course_progress_service.dart';
 
 // ── Shared constants (matches app-wide style) ─────────────────────────────────
 const _kPurple = Color(0xFF6C5CE7);
@@ -9,7 +13,7 @@ const _kCardShadow = [
   BoxShadow(color: Color(0x0F000000), blurRadius: 14, offset: Offset(0, 6)),
 ];
 
-// ── Fake student data ─────────────────────────────────────────────────────────
+// ── Student model ─────────────────────────────────────────────────────────────
 class _Student {
   const _Student({
     required this.name,
@@ -18,6 +22,7 @@ class _Student {
     required this.courseProgress,
     required this.accuracy,
     required this.avatarColor,
+    this.isMe = false,
   });
 
   final String name;
@@ -26,6 +31,7 @@ class _Student {
   final double courseProgress; // 0.0 – 1.0
   final double accuracy;       // 0.0 – 1.0
   final Color avatarColor;
+  final bool isMe;
 
   int get score =>
       (assignmentsDone * 10) + (courseProgress * 100).round() + (accuracy * 50).round();
@@ -123,21 +129,75 @@ class CommunityScreen extends StatefulWidget {
 }
 
 class _CommunityScreenState extends State<CommunityScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final TabController _tabController;
-
-  // Sort leaderboard by score descending
-  late final List<_Student> _ranked;
+  List<_Student> _ranked = [];
+  int _myRank = 0;
+  String _myName = 'You';
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _ranked = [..._students]..sort((a, b) => b.score.compareTo(a.score));
+    WidgetsBinding.instance.addObserver(this);
+    _resolveMyName();
+    _rebuild();
+    // Rebuild whenever the leaderboard tab is selected
+    _tabController.addListener(() {
+      if (_tabController.index == 0) _rebuild();
+    });
+  }
+
+  void _resolveMyName() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    if (user.displayName != null && user.displayName!.trim().isNotEmpty) {
+      _myName = user.displayName!;
+    } else if (user.email != null) {
+      _myName = user.email!.split('@').first;
+    }
+  }
+
+  /// Recompute the user's score from live cache and re-rank everyone.
+  void _rebuild() {
+    final svc = CourseProgressService();
+    final totalLessons = allCourses.fold(0, (s, c) => s + c.totalLessons);
+    final watched = allCourses.fold(0, (s, c) => s + svc.getWatchedCountSync(c.id));
+    final myProgress = totalLessons == 0
+        ? 0.0
+        : (watched / totalLessons).clamp(0.0, 1.0);
+
+    final me = _Student(
+      name: _myName,
+      course: 'Cloud Learning',
+      assignmentsDone: 2,
+      courseProgress: myProgress,
+      accuracy: 0.70,
+      avatarColor: _kPurple,
+      isMe: true,
+    );
+
+    final all = [..._students, me]
+      ..sort((a, b) => b.score.compareTo(a.score));
+    final myRank = all.indexWhere((s) => s.isMe) + 1;
+
+    if (mounted) {
+      setState(() {
+        _ranked = all;
+        _myRank = myRank;
+      });
+    }
+  }
+
+  // Rebuild when app resumes (e.g. user comes back from course screen)
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _rebuild();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     super.dispose();
   }
@@ -171,7 +231,7 @@ class _CommunityScreenState extends State<CommunityScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _LeaderboardTab(ranked: _ranked),
+          _LeaderboardTab(ranked: _ranked, myRank: _myRank),
           _AllStudentsTab(students: _students),
         ],
       ),
@@ -180,19 +240,67 @@ class _CommunityScreenState extends State<CommunityScreen>
 }
 
 // ── Leaderboard Tab ───────────────────────────────────────────────────────────
-class _LeaderboardTab extends StatelessWidget {
-  const _LeaderboardTab({required this.ranked});
+class _LeaderboardTab extends StatefulWidget {
+  const _LeaderboardTab({required this.ranked, required this.myRank});
   final List<_Student> ranked;
+  final int myRank;
+
+  @override
+  State<_LeaderboardTab> createState() => _LeaderboardTabState();
+}
+
+class _LeaderboardTabState extends State<_LeaderboardTab> {
+  final _scrollController = ScrollController();
+  // Each row is ~74px tall (padding 10 + content ~64)
+  static const double _rowHeight = 74.0;
+  // Header area: podium ~260 + spacing + "Rankings" label ~40 = ~310
+  static const double _headerHeight = 310.0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToUser());
+  }
+
+  @override
+  void didUpdateWidget(_LeaderboardTab old) {
+    super.didUpdateWidget(old);
+    // Rank changed (user completed a lesson) — re-scroll to new position
+    if (old.myRank != widget.myRank) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToUser());
+    }
+  }
+
+  void _scrollToUser() {
+    if (!_scrollController.hasClients) return;
+    final viewportHeight = _scrollController.position.viewportDimension;
+    // Position of user's row top from the very start of the scroll content
+    final userRowTop = _headerHeight + (_rowHeight * (widget.myRank - 1));
+    // We want the user row visible at the bottom of the viewport
+    final targetOffset = userRowTop - viewportHeight + _rowHeight + 16;
+    if (targetOffset > 0) {
+      _scrollController.animateTo(
+        targetOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return ListView(
+      controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
-        // Top 3 podium
-        _PodiumRow(ranked: ranked),
+        _PodiumRow(ranked: widget.ranked),
         const SizedBox(height: 20),
-        // Rest of the list
         Text(
           'Rankings',
           style: GoogleFonts.poppins(
@@ -202,8 +310,8 @@ class _LeaderboardTab extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        for (int i = 0; i < ranked.length; i++)
-          _LeaderboardRow(student: ranked[i], rank: i + 1),
+        for (int i = 0; i < widget.ranked.length; i++)
+          _LeaderboardRow(student: widget.ranked[i], rank: i + 1),
       ],
     );
   }
@@ -263,26 +371,48 @@ class _PodiumItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMe = student.isMe;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(_medal, style: const TextStyle(fontSize: 22)),
         const SizedBox(height: 6),
-        CircleAvatar(
-          radius: rank == 1 ? 28 : 22,
-          backgroundColor: Colors.white.withValues(alpha: 0.25),
-          child: Text(
-            student.name[0],
-            style: GoogleFonts.poppins(
-              fontSize: rank == 1 ? 20 : 16,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            CircleAvatar(
+              radius: rank == 1 ? 28 : 22,
+              backgroundColor: isMe
+                  ? Colors.white.withValues(alpha: 0.5)
+                  : Colors.white.withValues(alpha: 0.25),
+              child: Text(
+                student.name[0].toUpperCase(),
+                style: GoogleFonts.poppins(
+                  fontSize: rank == 1 ? 20 : 16,
+                  fontWeight: FontWeight.w700,
+                  color: isMe ? _kPurple : Colors.white,
+                ),
+              ),
             ),
-          ),
+            if (isMe)
+              Positioned(
+                right: -2,
+                top: -2,
+                child: Container(
+                  width: 14,
+                  height: 14,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.star_rounded, size: 10, color: _kPurple),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 6),
         Text(
-          student.name.split(' ').first,
+          isMe ? 'You' : student.name.split(' ').first,
           style: GoogleFonts.poppins(
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -301,7 +431,9 @@ class _PodiumItem extends StatelessWidget {
           width: 60,
           height: height,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.2),
+            color: isMe
+                ? Colors.white.withValues(alpha: 0.4)
+                : Colors.white.withValues(alpha: 0.2),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
           ),
           alignment: Alignment.center,
@@ -328,17 +460,30 @@ class _LeaderboardRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTop3 = rank <= 3;
+    final isMe = student.isMe;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: isTop3
-            ? Border.all(color: _kPurple.withValues(alpha: 0.3), width: 1.5)
+        // "Me" row: gradient background; top-3: purple border; others: plain white
+        gradient: isMe
+            ? const LinearGradient(
+                colors: [Color(0xFF6C5CE7), Color(0xFF9B8BFF)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              )
             : null,
-        boxShadow: _kCardShadow,
+        color: isMe ? null : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: !isMe && isTop3
+            ? Border.all(color: _kPurple.withValues(alpha: 0.3), width: 1.5)
+            : isMe
+                ? Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1.5)
+                : null,
+        boxShadow: isMe
+            ? const [BoxShadow(color: Color(0x446C5CE7), blurRadius: 16, offset: Offset(0, 6))]
+            : _kCardShadow,
       ),
       child: Row(
         children: [
@@ -347,9 +492,11 @@ class _LeaderboardRow extends StatelessWidget {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: isTop3
-                  ? _kPurple.withValues(alpha: 0.12)
-                  : const Color(0xFFF0EDFF),
+              color: isMe
+                  ? Colors.white.withValues(alpha: 0.25)
+                  : isTop3
+                      ? _kPurple.withValues(alpha: 0.12)
+                      : const Color(0xFFF0EDFF),
               borderRadius: BorderRadius.circular(10),
             ),
             alignment: Alignment.center,
@@ -358,7 +505,11 @@ class _LeaderboardRow extends StatelessWidget {
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: isTop3 ? _kPurple : _kDeep.withValues(alpha: 0.5),
+                color: isMe
+                    ? Colors.white
+                    : isTop3
+                        ? _kPurple
+                        : _kDeep.withValues(alpha: 0.5),
               ),
             ),
           ),
@@ -366,12 +517,14 @@ class _LeaderboardRow extends StatelessWidget {
           // Avatar
           CircleAvatar(
             radius: 20,
-            backgroundColor: student.avatarColor.withValues(alpha: 0.18),
+            backgroundColor: isMe
+                ? Colors.white.withValues(alpha: 0.25)
+                : student.avatarColor.withValues(alpha: 0.18),
             child: Text(
-              student.name[0],
+              student.name[0].toUpperCase(),
               style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w700,
-                color: student.avatarColor,
+                color: isMe ? Colors.white : student.avatarColor,
                 fontSize: 15,
               ),
             ),
@@ -382,25 +535,49 @@ class _LeaderboardRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  student.name,
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: _kDeep,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      student.name,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isMe ? Colors.white : _kDeep,
+                      ),
+                    ),
+                    if (isMe) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          'You',
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 Text(
                   student.course,
                   style: GoogleFonts.poppins(
                     fontSize: 11,
-                    color: _kDeep.withValues(alpha: 0.45),
+                    color: isMe
+                        ? Colors.white.withValues(alpha: 0.75)
+                        : _kDeep.withValues(alpha: 0.45),
                   ),
                 ),
               ],
             ),
           ),
-          // Stats column
+          // Score
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -409,14 +586,16 @@ class _LeaderboardRow extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: _kPurple,
+                  color: isMe ? Colors.white : _kPurple,
                 ),
               ),
               Text(
                 '${(student.courseProgress * 100).round()}% • ${student.assignmentsDone} done',
                 style: GoogleFonts.poppins(
                   fontSize: 10,
-                  color: _kDeep.withValues(alpha: 0.45),
+                  color: isMe
+                      ? Colors.white.withValues(alpha: 0.75)
+                      : _kDeep.withValues(alpha: 0.45),
                 ),
               ),
             ],
