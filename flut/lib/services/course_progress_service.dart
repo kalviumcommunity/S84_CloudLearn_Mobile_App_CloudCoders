@@ -1,7 +1,68 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-/// Represents progress for a single course
+// ─────────────────────────────────────────────────────────────────────────────
+// Singleton in-memory cache — single source of truth for all screens.
+// Firestore is only used for initial load and background persistence.
+// ─────────────────────────────────────────────────────────────────────────────
+class ProgressCache {
+  ProgressCache._();
+  static final ProgressCache instance = ProgressCache._();
+
+  final Map<String, Set<String>> _watched = {};       // courseId → lessonIds
+  final Map<String, Map<String, DateTime>> _times = {}; // courseId → lessonId → completedAt
+  bool _loaded = false;
+
+  bool get isLoaded => _loaded;
+
+  Set<String> watched(String courseId) =>
+      Set.unmodifiable(_watched[courseId] ?? const {});
+
+  Map<String, DateTime> completedAt(String courseId) =>
+      Map.unmodifiable(_times[courseId] ?? const {});
+
+  int watchedCount(String courseId) => (_watched[courseId] ?? {}).length;
+
+  void _ensureCourse(String courseId) {
+    _watched.putIfAbsent(courseId, () => {});
+    _times.putIfAbsent(courseId, () => {});
+  }
+
+  void setFromFirestore(String courseId, List<String> ids, Map<String, DateTime> times) {
+    _watched[courseId] = Set.from(ids);
+    _times[courseId] = Map.from(times);
+  }
+
+  /// Mark a lesson complete — returns true if it was newly completed.
+  bool complete(String courseId, String lessonId) {
+    _ensureCourse(courseId);
+    if (_watched[courseId]!.contains(lessonId)) return false;
+    _watched[courseId]!.add(lessonId);
+    _times[courseId]![lessonId] = DateTime.now();
+    return true;
+  }
+
+  /// Unmark a lesson — returns true if it was previously completed.
+  bool uncomplete(String courseId, String lessonId) {
+    _ensureCourse(courseId);
+    final removed = _watched[courseId]!.remove(lessonId);
+    _times[courseId]!.remove(lessonId);
+    return removed;
+  }
+
+  void markLoaded() => _loaded = true;
+  void invalidate() => _loaded = false;
+
+  void clear() {
+    _watched.clear();
+    _times.clear();
+    _loaded = false;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CourseProgress model
+// ─────────────────────────────────────────────────────────────────────────────
 class CourseProgress {
   const CourseProgress({
     required this.courseId,
@@ -17,37 +78,27 @@ class CourseProgress {
   final List<String> watchedVideoIds;
   final int totalVideos;
   final DateTime lastAccessedAt;
-
-  /// Maps lessonId → DateTime when it was completed
   final Map<String, DateTime> lessonCompletedAt;
 
   int get watchedCount => watchedVideoIds.length;
-
   double get progressFraction =>
       totalVideos == 0 ? 0.0 : (watchedCount / totalVideos).clamp(0.0, 1.0);
-
   String get progressLabel => '${(progressFraction * 100).round()}%';
-
   bool get isCompleted => watchedCount >= totalVideos && totalVideos > 0;
 
   factory CourseProgress.fromMap(Map<String, dynamic> map) {
     final ts = map['lastAccessedAt'];
     final rawIds = map['watchedVideoIds'];
-
-    // Parse per-lesson completion timestamps
     final rawTimes = map['lessonCompletedAt'];
     final Map<String, DateTime> completedAt = {};
     if (rawTimes is Map) {
-      rawTimes.forEach((key, value) {
-        if (value is Timestamp) {
-          completedAt[key.toString()] = value.toDate();
-        }
+      rawTimes.forEach((k, v) {
+        if (v is Timestamp) completedAt[k.toString()] = v.toDate();
       });
     }
-
     return CourseProgress(
       courseId: map['courseId'] as String? ?? '',
-      courseTitle: map['courseTitle'] as String? ?? 'Untitled Course',
+      courseTitle: map['courseTitle'] as String? ?? '',
       watchedVideoIds: rawIds is List ? List<String>.from(rawIds) : [],
       totalVideos: map['totalVideos'] as int? ?? 0,
       lastAccessedAt: ts is Timestamp ? ts.toDate() : DateTime.now(),
@@ -56,156 +107,157 @@ class CourseProgress {
   }
 }
 
-/// Course Progress Service
-///
-/// Persists watched video IDs + per-lesson completion timestamps per user per
-/// course in Firestore.
-/// Document key: userId_courseId in 'course_progress' collection.
+// ─────────────────────────────────────────────────────────────────────────────
+// CourseProgressService
+// ─────────────────────────────────────────────────────────────────────────────
 class CourseProgressService {
-  CourseProgressService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  CourseProgressService({FirebaseFirestore? db})
+      : _db = db ?? FirebaseFirestore.instance;
 
-  final FirebaseFirestore _firestore;
+  final FirebaseFirestore _db;
+  final _cache = ProgressCache.instance;
 
   CollectionReference<Map<String, dynamic>> get _col =>
-      _firestore.collection('course_progress');
+      _db.collection('course_progress');
 
-  String _docId(String userId, String courseId) => '${userId}_$courseId';
+  String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
-  String get _uid {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) throw Exception('User must be signed in.');
-    return uid;
+  String _docId(String uid, String courseId) => '${uid}_$courseId';
+
+  // ── Load all courses from Firestore into cache (call once on login / app start)
+  Future<void> warmUp(List<String> courseIds) async {
+    final uid = _uid;
+    if (uid == null) return;
+    for (final courseId in courseIds) {
+      try {
+        final doc = await _col
+            .doc(_docId(uid, courseId))
+            .get()
+            .timeout(const Duration(seconds: 8));
+        if (!doc.exists || doc.data() == null) continue;
+        final data = doc.data()!;
+        final rawIds = data['watchedVideoIds'];
+        final ids = rawIds is List ? List<String>.from(rawIds) : <String>[];
+        final rawTimes = data['lessonCompletedAt'];
+        final times = <String, DateTime>{};
+        if (rawTimes is Map) {
+          rawTimes.forEach((k, v) {
+            if (v is Timestamp) times[k.toString()] = v.toDate();
+          });
+        }
+        _cache.setFromFirestore(courseId, ids, times);
+      } catch (_) {}
+    }
+    _cache.markLoaded();
   }
 
-  /// Load watched video IDs for a course. Returns empty set if none saved or on error.
-  Future<Set<String>> getWatchedVideoIds(String courseId) async {
+  // ── Sync a single course from Firestore (used when opening a course detail)
+  Future<void> syncCourse(String courseId) async {
+    final uid = _uid;
+    if (uid == null) return;
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid == null) return {};
-
       final doc = await _col
           .doc(_docId(uid, courseId))
           .get()
           .timeout(const Duration(seconds: 8));
-      if (!doc.exists || doc.data() == null) return {};
-
-      final raw = doc.data()!['watchedVideoIds'];
-      if (raw is List) return Set<String>.from(raw);
-      return {};
-    } catch (_) {
-      return {};
-    }
+      if (!doc.exists || doc.data() == null) return;
+      final data = doc.data()!;
+      final rawIds = data['watchedVideoIds'];
+      final ids = rawIds is List ? List<String>.from(rawIds) : <String>[];
+      final rawTimes = data['lessonCompletedAt'];
+      final times = <String, DateTime>{};
+      if (rawTimes is Map) {
+        rawTimes.forEach((k, v) {
+          if (v is Timestamp) times[k.toString()] = v.toDate();
+        });
+      }
+      _cache.setFromFirestore(courseId, ids, times);
+    } catch (_) {}
   }
 
-  /// Load full progress including per-lesson timestamps.
-  Future<Map<String, DateTime>> getLessonCompletedAt(String courseId) async {
-    try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid == null) return {};
+  // ── Read from cache (synchronous — always up to date)
+  Set<String> getWatchedSync(String courseId) => _cache.watched(courseId);
+  Map<String, DateTime> getCompletedAtSync(String courseId) => _cache.completedAt(courseId);
+  int getWatchedCountSync(String courseId) => _cache.watchedCount(courseId);
 
-      final doc = await _col
-          .doc(_docId(uid, courseId))
-          .get()
-          .timeout(const Duration(seconds: 8));
-      if (!doc.exists || doc.data() == null) return {};
-
-      final raw = doc.data()!['lessonCompletedAt'];
-      if (raw is! Map) return {};
-
-      final result = <String, DateTime>{};
-      raw.forEach((key, value) {
-        if (value is Timestamp) result[key.toString()] = value.toDate();
-      });
-      return result;
-    } catch (_) {
-      return {};
-    }
-  }
-
-  /// Save the full set of watched video IDs for a course.
-  /// [newlyCompletedId] — if provided, records the completion timestamp for
-  /// that lesson (only written once; existing timestamps are preserved via merge).
-  Future<void> saveWatchedVideoIds({
+  // ── Toggle a lesson complete/incomplete
+  // Updates cache immediately (UI reflects instantly), persists to Firestore async.
+  void toggleLesson({
     required String courseId,
     required String courseTitle,
-    required Set<String> watchedIds,
+    required String lessonId,
+    required int totalVideos,
+  }) {
+    final wasComplete = _cache.watched(courseId).contains(lessonId);
+    if (wasComplete) {
+      _cache.uncomplete(courseId, lessonId);
+    } else {
+      _cache.complete(courseId, lessonId);
+    }
+    // Fire-and-forget persist
+    _persist(
+      courseId: courseId,
+      courseTitle: courseTitle,
+      totalVideos: totalVideos,
+      newlyCompletedId: wasComplete ? null : lessonId,
+    );
+  }
+
+  Future<void> _persist({
+    required String courseId,
+    required String courseTitle,
     required int totalVideos,
     String? newlyCompletedId,
   }) async {
     try {
       final uid = _uid;
+      if (uid == null) return;
+      final watched = _cache.watched(courseId);
       final data = <String, dynamic>{
         'userId': uid,
         'courseId': courseId,
         'courseTitle': courseTitle,
-        'watchedVideoIds': watchedIds.toList(),
-        'watchedCount': watchedIds.length,
+        'watchedVideoIds': watched.toList(),
+        'watchedCount': watched.length,
         'totalVideos': totalVideos,
         'progressFraction': totalVideos == 0
             ? 0.0
-            : (watchedIds.length / totalVideos).clamp(0.0, 1.0),
+            : (watched.length / totalVideos).clamp(0.0, 1.0),
         'lastAccessedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       };
-
-      // Record per-lesson completion timestamp (server time)
       if (newlyCompletedId != null) {
         data['lessonCompletedAt.$newlyCompletedId'] = FieldValue.serverTimestamp();
       }
-
       await _col
           .doc(_docId(uid, courseId))
           .set(data, SetOptions(merge: true))
-          .timeout(const Duration(seconds: 8));
-    } catch (_) {
-      // Silent fail — progress will sync next time
-    }
+          .timeout(const Duration(seconds: 10));
+    } catch (_) {}
   }
 
-  /// Stream of all course progress entries for the current user.
-  Stream<List<CourseProgress>> watchAllProgress() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return const Stream.empty();
+  // ── Overall progress across all courses (0.0–1.0) from cache
+  double overallProgressSync(List<String> courseIds, Map<String, int> totalLessonsMap) {
+    int totalWatched = 0, totalLessons = 0;
+    for (final id in courseIds) {
+      totalWatched += _cache.watchedCount(id);
+      totalLessons += totalLessonsMap[id] ?? 0;
+    }
+    if (totalLessons == 0) return 0.0;
+    return (totalWatched / totalLessons).clamp(0.0, 1.0);
+  }
 
+  // ── Firestore stream (for analytics — real-time)
+  Stream<List<CourseProgress>> watchAllProgress() {
+    final uid = _uid;
+    if (uid == null) return const Stream.empty();
     return _col
         .where('userId', isEqualTo: uid)
         .orderBy('lastAccessedAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => CourseProgress.fromMap(doc.data()))
-            .toList());
+        .map((s) => s.docs.map((d) => CourseProgress.fromMap(d.data())).toList());
   }
 
-  /// Get progress for a specific course (one-time fetch).
-  Future<CourseProgress?> getCourseProgress(String courseId) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return null;
-
-    final doc = await _col.doc(_docId(uid, courseId)).get();
-    if (!doc.exists || doc.data() == null) return null;
-    return CourseProgress.fromMap(doc.data()!);
-  }
-
-  /// Get overall progress across all courses as a fraction (0.0 – 1.0).
-  Future<double> getOverallProgress() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return 0.0;
-
-    final snapshot = await _col.where('userId', isEqualTo: uid).get();
-    if (snapshot.docs.isEmpty) return 0.0;
-
-    int totalWatched = 0;
-    int totalVideos = 0;
-
-    for (final doc in snapshot.docs) {
-      final data = doc.data();
-      final raw = data['watchedVideoIds'];
-      totalWatched += raw is List ? raw.length : 0;
-      totalVideos += data['totalVideos'] as int? ?? 0;
-    }
-
-    if (totalVideos == 0) return 0.0;
-    return (totalWatched / totalVideos).clamp(0.0, 1.0);
-  }
+  void invalidateCache() => _cache.invalidate();
+  void clearCache() => _cache.clear();
 }
