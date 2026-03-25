@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'storage_service.dart';
 
@@ -210,12 +211,23 @@ class AssignmentService {
       'assignmentId': assignment.id,
       'userId': userId,
       'answerText': (answerText ?? '').trim(),
-      'fileUrl': fileUrl,
-      'fileName': fileName,
+      'fileUrl': fileUrl ?? '',
+      'fileName': fileName ?? '',
       'status': status,
       'submittedAt': Timestamp.fromDate(submittedAt),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+
+    // Award 20 points per assignment submission to users document
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        await _firestore.collection('users').doc(uid).set({
+          'totalPoints': FieldValue.increment(20),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+    } catch (_) {}
   }
 
   Future<int> getCompletedAssignmentCount(String userId) async {

@@ -169,5 +169,13 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid;
       allow delete: if false;
     }
+
+    // User progress document — totalPoints, progress, completedLessons.
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false;
+    }
   }
 }
