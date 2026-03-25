@@ -12,8 +12,12 @@ class ProgressCache {
   final Map<String, Set<String>> _watched = {};       // courseId → lessonIds
   final Map<String, Map<String, DateTime>> _times = {}; // courseId → lessonId → completedAt
   bool _loaded = false;
+  String? _lastOpenedCourseId; // tracks the most recently opened course
 
   bool get isLoaded => _loaded;
+  String? get lastOpenedCourseId => _lastOpenedCourseId;
+
+  void setLastOpened(String courseId) => _lastOpenedCourseId = courseId;
 
   Set<String> watched(String courseId) =>
       Set.unmodifiable(_watched[courseId] ?? const {});
@@ -57,6 +61,7 @@ class ProgressCache {
     _watched.clear();
     _times.clear();
     _loaded = false;
+    _lastOpenedCourseId = null;
   }
 }
 
@@ -179,6 +184,8 @@ class CourseProgressService {
   Set<String> getWatchedSync(String courseId) => _cache.watched(courseId);
   Map<String, DateTime> getCompletedAtSync(String courseId) => _cache.completedAt(courseId);
   int getWatchedCountSync(String courseId) => _cache.watchedCount(courseId);
+  String? get lastOpenedCourseId => _cache.lastOpenedCourseId;
+  void setLastOpened(String courseId) => _cache.setLastOpened(courseId);
 
   // ── Toggle a lesson complete/incomplete
   // Updates cache immediately (UI reflects instantly), persists to Firestore async.

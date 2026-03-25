@@ -6,6 +6,7 @@ import '../data/course_data.dart';
 import '../services/course_progress_service.dart';
 import 'assignments_screen.dart';
 import 'community_screen.dart';
+import 'course_detail_screen.dart';
 import 'progress_analytics_screen.dart';
 import 'profile_screen.dart';
 import 'my_courses_screen.dart';
@@ -53,7 +54,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
 
   final List<_FeatureItem> _features = const [
     _FeatureItem(
-      label: 'Courses',
+      label: 'My Courses',
       icon: Icons.menu_book_rounded,
       color: Color(0xFF7C6CF6),
       bgColor: Color(0xFFF0EDFF),
@@ -120,21 +121,56 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
         return t > 0 && _svc.getWatchedCountSync(c.id) >= t;
       }).length : 0;
 
-  // Most-in-progress course for "Continue Learning"
-  CourseInfo? get _continueCourse {
+  // Last opened course — falls back to most-in-progress if none opened yet
+  CourseInfo get _continueCourse {
     if (!_cacheReady) return allCourses.first;
+    final lastId = _svc.lastOpenedCourseId;
+    if (lastId != null) {
+      final found = allCourses.where((c) => c.id == lastId).toList();
+      if (found.isNotEmpty) return found.first;
+    }
+    // fallback: pick the course with most progress that isn't 100%
     CourseInfo? best;
-    double bestPct = 0;
+    double bestPct = -1;
     for (final c in allCourses) {
       final t = c.totalLessons;
       if (t == 0) continue;
       final pct = _svc.getWatchedCountSync(c.id) / t;
-      if (pct > 0 && pct < 1.0 && pct > bestPct) {
-        bestPct = pct;
-        best = c;
-      }
+      if (pct > bestPct) { bestPct = pct; best = c; }
     }
     return best ?? allCourses.first;
+  }
+
+  // Progress for the continue-learning course specifically
+  double get _continueCourseProgress {
+    if (!_cacheReady) return 0;
+    final c = _continueCourse;
+    final t = c.totalLessons;
+    return t == 0 ? 0 : (_svc.getWatchedCountSync(c.id) / t).clamp(0.0, 1.0);
+  }
+
+  void _openContinueCourse() {
+    const courseColors = {
+      'cloud-computing-basics': Color(0xFF7A68F9),
+      'aws-fundamentals': Color(0xFF00C9A7),
+      'azure-for-beginners': Color(0xFF4C9AFF),
+      'kubernetes-essentials': Color(0xFFFF8A65),
+    };
+    const courseIcons = {
+      'cloud-computing-basics': Icons.cloud_rounded,
+      'aws-fundamentals': Icons.storage_rounded,
+      'azure-for-beginners': Icons.rocket_launch_rounded,
+      'kubernetes-essentials': Icons.hub_rounded,
+    };
+    final course = _continueCourse;
+    _svc.setLastOpened(course.id);
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => CourseDetailScreen(
+        course: course,
+        color: courseColors[course.id] ?? _kPurple,
+        icon: courseIcons[course.id] ?? Icons.school_rounded,
+      ),
+    )).then((_) { if (mounted) setState(() {}); });
   }
 
   @override
@@ -167,7 +203,6 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
             .push(MaterialPageRoute(builder: (_) => const CommunityScreen()));
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -206,10 +241,9 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
 
                   // ── Continue Learning ────────────────────────────────
                   _ContinueLearningCard(
-                    course: _continueCourse ?? allCourses.first,
-                    progress: _overallProgress,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const MyCoursesScreen())),
+                    course: _continueCourse,
+                    progress: _continueCourseProgress,
+                    onTap: _openContinueCourse,
                   ),
                   const SizedBox(height: 16),
 
@@ -401,80 +435,90 @@ class _ContinueLearningCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final percent = (progress * 100).round();
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: _kCardShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 44, height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0EDFF),
-                  borderRadius: BorderRadius.circular(14),
+    final hasStarted = progress > 0;
+    final isComplete = progress >= 1.0;
+    final buttonLabel = isComplete ? 'Review Course' : hasStarted ? 'Resume Course' : 'Start Course';
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: _kCardShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 44, height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0EDFF),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(Icons.cloud_done_rounded, color: _kPurple, size: 22),
                 ),
-                child: const Icon(Icons.cloud_done_rounded, color: _kPurple, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Continue Learning',
-                        style: GoogleFonts.poppins(
-                            fontSize: 15, fontWeight: FontWeight.w700, color: _kDeep)),
-                    Text(course.title,
-                        style: GoogleFonts.poppins(
-                            fontSize: 12, color: _kDeep.withValues(alpha: 0.5))),
-                  ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Continue Learning',
+                          style: GoogleFonts.poppins(
+                              fontSize: 15, fontWeight: FontWeight.w700, color: _kDeep)),
+                      Text(course.title,
+                          style: GoogleFonts.poppins(
+                              fontSize: 12, color: _kDeep.withValues(alpha: 0.5))),
+                    ],
+                  ),
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0EDFF),
-                  borderRadius: BorderRadius.circular(20),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0EDFF),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text('$percent%',
+                      style: GoogleFonts.poppins(
+                          fontSize: 12, fontWeight: FontWeight.w700, color: _kPurple)),
                 ),
-                child: Text('$percent%',
-                    style: GoogleFonts.poppins(
-                        fontSize: 12, fontWeight: FontWeight.w700, color: _kPurple)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-              minHeight: 7,
-              value: progress,
-              backgroundColor: const Color(0xFFF0EDFF),
-              valueColor: const AlwaysStoppedAnimation<Color>(_kPurple),
+              ],
             ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: onTap,
-              icon: const Icon(Icons.play_arrow_rounded, size: 18),
-              label: Text('Go to Courses',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14)),
-              style: ElevatedButton.styleFrom(
-                elevation: 0,
-                backgroundColor: _kPurple,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                padding: const EdgeInsets.symmetric(vertical: 13),
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: LinearProgressIndicator(
+                minHeight: 7,
+                value: progress,
+                backgroundColor: const Color(0xFFF0EDFF),
+                valueColor: const AlwaysStoppedAnimation<Color>(_kPurple),
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: onTap,
+                icon: Icon(
+                  isComplete ? Icons.replay_rounded : Icons.play_arrow_rounded,
+                  size: 18,
+                ),
+                label: Text(buttonLabel,
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14)),
+                style: ElevatedButton.styleFrom(
+                  elevation: 0,
+                  backgroundColor: _kPurple,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
