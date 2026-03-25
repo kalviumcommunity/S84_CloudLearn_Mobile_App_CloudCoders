@@ -20,6 +20,38 @@ class FirestoreService {
     return uid;
   }
 
+  // ── User document stream ──────────────────────────────────────────────────
+
+  /// Real-time stream of the current user's document from the users collection.
+  /// Emits an empty map if the document doesn't exist yet.
+  Stream<Map<String, dynamic>> getCurrentUserStream() {
+    final user = _auth.currentUser;
+    if (user == null) return const Stream.empty();
+    return _firestore
+        .collection('users')
+        .doc(user.uid)
+        .snapshots()
+        .map((doc) => doc.data() ?? {});
+  }
+
+  /// Ensures the users/{uid} document exists with default fields.
+  /// Call this on first login / sign-up so the stream never returns empty data.
+  Future<void> ensureUserDocument() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    final ref = _firestore.collection('users').doc(user.uid);
+    final doc = await ref.get();
+    if (!doc.exists) {
+      await ref.set({
+        'totalPoints': 0,
+        'progress': 0,
+        'completedLessons': {},
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+  }
+
   /// Add a new task to Firestore
   /// 
   /// Automatically syncs across all connected devices in real-time

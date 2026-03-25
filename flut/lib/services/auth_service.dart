@@ -1,12 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'firestore_service.dart';
+
 /// Firebase Authentication Service
 /// 
 /// Handles user sign-up, sign-in, and session management
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirestoreService _firestoreService = FirestoreService();
 
   String _normalizeEmail(String email) => email.trim().toLowerCase();
 
@@ -44,6 +47,7 @@ class AuthService {
         await userCredential.user!.sendEmailVerification();
       }
       await _ensureUserProfile(userCredential.user);
+      await _firestoreService.ensureUserDocument();
       return userCredential.user;
     } on FirebaseAuthException catch (e) {
       // Handle specific errors
@@ -78,6 +82,7 @@ class AuthService {
       }
 
       await _ensureUserProfile(userCredential.user);
+      await _firestoreService.ensureUserDocument();
       return userCredential.user;
     } on FirebaseAuthException catch (e) {
       // Handle specific errors

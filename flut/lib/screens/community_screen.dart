@@ -2,10 +2,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../data/course_data.dart';
-import '../services/course_progress_service.dart';
+import '../services/firestore_service.dart';
 
-// ── Shared constants (matches app-wide style) ─────────────────────────────────
+// ── Shared constants ──────────────────────────────────────────────────────────
 const _kPurple = Color(0xFF6C5CE7);
 const _kDeep = Color(0xFF2D1A4D);
 const _kBg = Color(0xFFF3F0FF);
@@ -19,8 +18,8 @@ class _Student {
     required this.name,
     required this.course,
     required this.assignmentsDone,
-    required this.courseProgress,
-    required this.accuracy,
+    required this.courseProgress, // 0–100 int
+    required this.totalPoints,
     required this.avatarColor,
     this.isMe = false,
   });
@@ -28,97 +27,50 @@ class _Student {
   final String name;
   final String course;
   final int assignmentsDone;
-  final double courseProgress; // 0.0 – 1.0
-  final double accuracy;       // 0.0 – 1.0
+  final int courseProgress;
+  final int totalPoints;
   final Color avatarColor;
   final bool isMe;
-
-  int get score =>
-      (assignmentsDone * 10) + (courseProgress * 100).round() + (accuracy * 50).round();
 }
 
-const _students = <_Student>[
-  _Student(
-    name: 'Ayesha Khan',
-    course: 'Cloud Computing',
-    assignmentsDone: 9,
-    courseProgress: 0.92,
-    accuracy: 0.95,
-    avatarColor: Color(0xFF7C6CF6),
-  ),
-  _Student(
-    name: 'Bilal Ahmed',
-    course: 'AWS Fundamentals',
-    assignmentsDone: 8,
-    courseProgress: 0.85,
-    accuracy: 0.88,
-    avatarColor: Color(0xFF00C9A7),
-  ),
-  _Student(
-    name: 'Sara Malik',
-    course: 'Azure for Beginners',
-    assignmentsDone: 7,
-    courseProgress: 0.78,
-    accuracy: 0.91,
-    avatarColor: Color(0xFFE8637A),
-  ),
-  _Student(
-    name: 'Usman Tariq',
-    course: 'Kubernetes Essentials',
-    assignmentsDone: 6,
-    courseProgress: 0.65,
-    accuracy: 0.82,
-    avatarColor: Color(0xFFFF8A65),
-  ),
-  _Student(
-    name: 'Hira Baig',
-    course: 'Cloud Computing',
-    assignmentsDone: 6,
-    courseProgress: 0.60,
-    accuracy: 0.79,
-    avatarColor: Color(0xFF4C9AFF),
-  ),
-  _Student(
-    name: 'Zain Raza',
-    course: 'AWS Fundamentals',
-    assignmentsDone: 5,
-    courseProgress: 0.55,
-    accuracy: 0.74,
-    avatarColor: Color(0xFFE8A020),
-  ),
-  _Student(
-    name: 'Nadia Hussain',
-    course: 'Azure for Beginners',
-    assignmentsDone: 4,
-    courseProgress: 0.48,
-    accuracy: 0.70,
-    avatarColor: Color(0xFF9B59B6),
-  ),
-  _Student(
-    name: 'Hamza Sheikh',
-    course: 'Kubernetes Essentials',
-    assignmentsDone: 3,
-    courseProgress: 0.35,
-    accuracy: 0.65,
-    avatarColor: Color(0xFF2ECC71),
-  ),
-  _Student(
-    name: 'Fatima Zahra',
-    course: 'Cloud Computing',
-    assignmentsDone: 3,
-    courseProgress: 0.30,
-    accuracy: 0.60,
-    avatarColor: Color(0xFFE74C3C),
-  ),
-  _Student(
-    name: 'Ali Hassan',
-    course: 'AWS Fundamentals',
-    assignmentsDone: 2,
-    courseProgress: 0.20,
-    accuracy: 0.55,
-    avatarColor: Color(0xFF1ABC9C),
-  ),
+// ── Fake peer data (static) ───────────────────────────────────────────────────
+const _fakePeers = <_Student>[
+  _Student(name: 'Ayesha Khan',    course: 'Cloud Computing',       assignmentsDone: 9,  courseProgress: 92, totalPoints: 190, avatarColor: Color(0xFF7C6CF6)),
+  _Student(name: 'Bilal Ahmed',    course: 'AWS Fundamentals',      assignmentsDone: 8,  courseProgress: 85, totalPoints: 165, avatarColor: Color(0xFF00C9A7)),
+  _Student(name: 'Sara Malik',     course: 'Azure for Beginners',   assignmentsDone: 7,  courseProgress: 78, totalPoints: 148, avatarColor: Color(0xFFE8637A)),
+  _Student(name: 'Usman Tariq',    course: 'Kubernetes Essentials', assignmentsDone: 6,  courseProgress: 65, totalPoints: 125, avatarColor: Color(0xFFFF8A65)),
+  _Student(name: 'Hira Baig',      course: 'Cloud Computing',       assignmentsDone: 6,  courseProgress: 60, totalPoints: 118, avatarColor: Color(0xFF4C9AFF)),
+  _Student(name: 'Zain Raza',      course: 'AWS Fundamentals',      assignmentsDone: 5,  courseProgress: 55, totalPoints: 100, avatarColor: Color(0xFFE8A020)),
+  _Student(name: 'Nadia Hussain',  course: 'Azure for Beginners',   assignmentsDone: 4,  courseProgress: 48, totalPoints: 85,  avatarColor: Color(0xFF9B59B6)),
+  _Student(name: 'Hamza Sheikh',   course: 'Kubernetes Essentials', assignmentsDone: 3,  courseProgress: 35, totalPoints: 65,  avatarColor: Color(0xFF2ECC71)),
+  _Student(name: 'Fatima Zahra',   course: 'Cloud Computing',       assignmentsDone: 3,  courseProgress: 30, totalPoints: 55,  avatarColor: Color(0xFFE74C3C)),
+  _Student(name: 'Ali Hassan',     course: 'AWS Fundamentals',      assignmentsDone: 2,  courseProgress: 20, totalPoints: 35,  avatarColor: Color(0xFF1ABC9C)),
 ];
+
+// ── Merge helper — inserts real user, sorts by totalPoints ────────────────────
+List<_Student> _buildLeaderboard(Map<String, dynamic> userData) {
+  final user = FirebaseAuth.instance.currentUser;
+  final userName = (user?.displayName?.trim().isNotEmpty == true)
+      ? user!.displayName!
+      : (user?.email?.split('@').first ?? 'You');
+
+  // opt4: safe fallbacks — guard against missing or wrong-typed fields
+  final int points = (userData['totalPoints'] as num?)?.toInt() ?? 0;
+  final int progress = (userData['progress'] as num?)?.toInt() ?? 0;
+
+  final me = _Student(
+    name: userName,
+    course: 'Cloud Learning',
+    assignmentsDone: 0,
+    courseProgress: progress,
+    totalPoints: points,
+    avatarColor: _kPurple,
+    isMe: true,
+  );
+
+  return [..._fakePeers, me]
+    ..sort((a, b) => b.totalPoints.compareTo(a.totalPoints));
+}
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 class CommunityScreen extends StatefulWidget {
@@ -129,75 +81,18 @@ class CommunityScreen extends StatefulWidget {
 }
 
 class _CommunityScreenState extends State<CommunityScreen>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+    with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  List<_Student> _ranked = [];
-  int _myRank = 0;
-  String _myName = 'You';
+  final _firestoreService = FirestoreService();
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    WidgetsBinding.instance.addObserver(this);
-    _resolveMyName();
-    _rebuild();
-    // Rebuild whenever the leaderboard tab is selected
-    _tabController.addListener(() {
-      if (_tabController.index == 0) _rebuild();
-    });
-  }
-
-  void _resolveMyName() {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    if (user.displayName != null && user.displayName!.trim().isNotEmpty) {
-      _myName = user.displayName!;
-    } else if (user.email != null) {
-      _myName = user.email!.split('@').first;
-    }
-  }
-
-  /// Recompute the user's score from live cache and re-rank everyone.
-  void _rebuild() {
-    final svc = CourseProgressService();
-    final totalLessons = allCourses.fold(0, (s, c) => s + c.totalLessons);
-    final watched = allCourses.fold(0, (s, c) => s + svc.getWatchedCountSync(c.id));
-    final myProgress = totalLessons == 0
-        ? 0.0
-        : (watched / totalLessons).clamp(0.0, 1.0);
-
-    final me = _Student(
-      name: _myName,
-      course: 'Cloud Learning',
-      assignmentsDone: 2,
-      courseProgress: myProgress,
-      accuracy: 0.70,
-      avatarColor: _kPurple,
-      isMe: true,
-    );
-
-    final all = [..._students, me]
-      ..sort((a, b) => b.score.compareTo(a.score));
-    final myRank = all.indexWhere((s) => s.isMe) + 1;
-
-    if (mounted) {
-      setState(() {
-        _ranked = all;
-        _myRank = myRank;
-      });
-    }
-  }
-
-  // Rebuild when app resumes (e.g. user comes back from course screen)
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _rebuild();
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     super.dispose();
   }
@@ -207,10 +102,8 @@ class _CommunityScreenState extends State<CommunityScreen>
     return Scaffold(
       backgroundColor: _kBg,
       appBar: AppBar(
-        title: Text(
-          'Community',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w700, color: _kDeep),
-        ),
+        title: Text('Community',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w700, color: _kDeep)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: _kDeep),
@@ -228,12 +121,23 @@ class _CommunityScreenState extends State<CommunityScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _LeaderboardTab(ranked: _ranked, myRank: _myRank),
-          _AllStudentsTab(students: _students),
-        ],
+      body: StreamBuilder<Map<String, dynamic>>(
+        stream: _firestoreService.getCurrentUserStream(),
+        builder: (context, snapshot) {
+          // opt1: avoid heavy rebuild flicker on first frame — show nothing
+          if (!snapshot.hasData) return const SizedBox();
+
+          final ranked = _buildLeaderboard(snapshot.data!);
+          final myRank = ranked.indexWhere((s) => s.isMe) + 1;
+
+          return TabBarView(
+            controller: _tabController,
+            children: [
+              _LeaderboardTab(ranked: ranked, myRank: myRank),
+              _AllStudentsTab(students: ranked),
+            ],
+          );
+        },
       ),
     );
   }
@@ -251,9 +155,7 @@ class _LeaderboardTab extends StatefulWidget {
 
 class _LeaderboardTabState extends State<_LeaderboardTab> {
   final _scrollController = ScrollController();
-  // Each row is ~74px tall (padding 10 + content ~64)
   static const double _rowHeight = 74.0;
-  // Header area: podium ~260 + spacing + "Rankings" label ~40 = ~310
   static const double _headerHeight = 310.0;
 
   @override
@@ -265,7 +167,6 @@ class _LeaderboardTabState extends State<_LeaderboardTab> {
   @override
   void didUpdateWidget(_LeaderboardTab old) {
     super.didUpdateWidget(old);
-    // Rank changed (user completed a lesson) — re-scroll to new position
     if (old.myRank != widget.myRank) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToUser());
     }
@@ -274,9 +175,7 @@ class _LeaderboardTabState extends State<_LeaderboardTab> {
   void _scrollToUser() {
     if (!_scrollController.hasClients) return;
     final viewportHeight = _scrollController.position.viewportDimension;
-    // Position of user's row top from the very start of the scroll content
     final userRowTop = _headerHeight + (_rowHeight * (widget.myRank - 1));
-    // We want the user row visible at the bottom of the viewport
     final targetOffset = userRowTop - viewportHeight + _rowHeight + 16;
     if (targetOffset > 0) {
       _scrollController.animateTo(
@@ -295,24 +194,132 @@ class _LeaderboardTabState extends State<_LeaderboardTab> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+    final showSticky = widget.myRank > 3;
+    final me = widget.ranked.firstWhere((s) => s.isMe);
+
+    return Stack(
       children: [
-        _PodiumRow(ranked: widget.ranked),
-        const SizedBox(height: 20),
-        Text(
-          'Rankings',
-          style: GoogleFonts.poppins(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: _kDeep,
-          ),
+        // opt3: PageStorageKey prevents scroll position jumping on rebuild
+        ListView.builder(
+          key: const PageStorageKey('leaderboard'),
+          controller: _scrollController,
+          padding: EdgeInsets.fromLTRB(16, 16, 16, showSticky ? 100 : 24),
+          itemCount: widget.ranked.length + 3, // podium + spacer + label + rows
+          itemBuilder: (context, index) {
+            if (index == 0) return _PodiumRow(ranked: widget.ranked);
+            if (index == 1) return const SizedBox(height: 20);
+            if (index == 2)
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Text('Rankings',
+                    style: GoogleFonts.poppins(
+                        fontSize: 15, fontWeight: FontWeight.w700, color: _kDeep)),
+              );
+            final i = index - 3;
+            return _LeaderboardRow(student: widget.ranked[i], rank: i + 1);
+          },
         ),
-        const SizedBox(height: 10),
-        for (int i = 0; i < widget.ranked.length; i++)
-          _LeaderboardRow(student: widget.ranked[i], rank: i + 1),
+
+        // opt2: animated slide-in/out for the sticky card
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+          bottom: showSticky ? 12 : -120,
+          left: 12,
+          right: 12,
+          child: _StickyUserCard(student: me, rank: widget.myRank),
+        ),
       ],
+    );
+  }
+}
+
+// ── Sticky User Card ──────────────────────────────────────────────────────────
+class _StickyUserCard extends StatelessWidget {
+  const _StickyUserCard({required this.student, required this.rank});
+  final _Student student;
+  final int rank;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6C5CE7), Color(0xFF9B8BFF)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(color: Color(0x556C5CE7), blurRadius: 20, offset: Offset(0, 8)),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Rank badge
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: Text('#$rank',
+                style: GoogleFonts.poppins(
+                    fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white)),
+          ),
+          const SizedBox(width: 12),
+          // Avatar
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: Colors.white.withValues(alpha: 0.3),
+            child: Text(student.name[0].toUpperCase(),
+                style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w700, color: Colors.white, fontSize: 14)),
+          ),
+          const SizedBox(width: 10),
+          // Name + label
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Text('Your Rank',
+                      style: GoogleFonts.poppins(
+                          fontSize: 11, color: Colors.white.withValues(alpha: 0.75))),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text('You',
+                        style: GoogleFonts.poppins(
+                            fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white)),
+                  ),
+                ]),
+                Text(student.name,
+                    style: GoogleFonts.poppins(
+                        fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+              ],
+            ),
+          ),
+          // Points + progress
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('${student.totalPoints} pts',
+                  style: GoogleFonts.poppins(
+                      fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white)),
+              Text('${student.courseProgress}% progress',
+                  style: GoogleFonts.poppins(
+                      fontSize: 10, color: Colors.white.withValues(alpha: 0.75))),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -325,7 +332,6 @@ class _PodiumRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (ranked.length < 3) return const SizedBox.shrink();
-
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
       decoration: BoxDecoration(
@@ -353,21 +359,12 @@ class _PodiumRow extends StatelessWidget {
 }
 
 class _PodiumItem extends StatelessWidget {
-  const _PodiumItem({
-    required this.student,
-    required this.rank,
-    required this.height,
-  });
-
+  const _PodiumItem({required this.student, required this.rank, required this.height});
   final _Student student;
   final int rank;
   final double height;
 
-  String get _medal {
-    if (rank == 1) return '🥇';
-    if (rank == 2) return '🥈';
-    return '🥉';
-  }
+  String get _medal => rank == 1 ? '🥇' : rank == 2 ? '🥈' : '🥉';
 
   @override
   Widget build(BuildContext context) {
@@ -396,15 +393,10 @@ class _PodiumItem extends StatelessWidget {
             ),
             if (isMe)
               Positioned(
-                right: -2,
-                top: -2,
+                right: -2, top: -2,
                 child: Container(
-                  width: 14,
-                  height: 14,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
+                  width: 14, height: 14,
+                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
                   child: const Icon(Icons.star_rounded, size: 10, color: _kPurple),
                 ),
               ),
@@ -413,23 +405,15 @@ class _PodiumItem extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           isMe ? 'You' : student.name.split(' ').first,
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
+          style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
         ),
         Text(
-          '${student.score} pts',
-          style: GoogleFonts.poppins(
-            fontSize: 11,
-            color: Colors.white.withValues(alpha: 0.8),
-          ),
+          '${student.totalPoints} pts',
+          style: GoogleFonts.poppins(fontSize: 11, color: Colors.white.withValues(alpha: 0.8)),
         ),
         const SizedBox(height: 8),
         Container(
-          width: 60,
-          height: height,
+          width: 60, height: height,
           decoration: BoxDecoration(
             color: isMe
                 ? Colors.white.withValues(alpha: 0.4)
@@ -437,14 +421,9 @@ class _PodiumItem extends StatelessWidget {
             borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
           ),
           alignment: Alignment.center,
-          child: Text(
-            '#$rank',
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-            ),
-          ),
+          child: Text('#$rank',
+              style: GoogleFonts.poppins(
+                  fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white)),
         ),
       ],
     );
@@ -466,7 +445,6 @@ class _LeaderboardRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        // "Me" row: gradient background; top-3: purple border; others: plain white
         gradient: isMe
             ? const LinearGradient(
                 colors: [Color(0xFF6C5CE7), Color(0xFF9B8BFF)],
@@ -489,8 +467,7 @@ class _LeaderboardRow extends StatelessWidget {
         children: [
           // Rank badge
           Container(
-            width: 32,
-            height: 32,
+            width: 32, height: 32,
             decoration: BoxDecoration(
               color: isMe
                   ? Colors.white.withValues(alpha: 0.25)
@@ -500,18 +477,11 @@ class _LeaderboardRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             alignment: Alignment.center,
-            child: Text(
-              '#$rank',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: isMe
-                    ? Colors.white
-                    : isTop3
-                        ? _kPurple
-                        : _kDeep.withValues(alpha: 0.5),
-              ),
-            ),
+            child: Text('#$rank',
+                style: GoogleFonts.poppins(
+                  fontSize: 12, fontWeight: FontWeight.w700,
+                  color: isMe ? Colors.white : isTop3 ? _kPurple : _kDeep.withValues(alpha: 0.5),
+                )),
           ),
           const SizedBox(width: 10),
           // Avatar
@@ -537,14 +507,10 @@ class _LeaderboardRow extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(
-                      student.name,
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: isMe ? Colors.white : _kDeep,
-                      ),
-                    ),
+                    Text(student.name,
+                        style: GoogleFonts.poppins(
+                            fontSize: 13, fontWeight: FontWeight.w600,
+                            color: isMe ? Colors.white : _kDeep)),
                     if (isMe) ...[
                       const SizedBox(width: 6),
                       Container(
@@ -553,51 +519,38 @@ class _LeaderboardRow extends StatelessWidget {
                           color: Colors.white.withValues(alpha: 0.25),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Text(
-                          'You',
-                          style: GoogleFonts.poppins(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
+                        child: Text('You',
+                            style: GoogleFonts.poppins(
+                                fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white)),
                       ),
                     ],
                   ],
                 ),
-                Text(
-                  student.course,
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    color: isMe
-                        ? Colors.white.withValues(alpha: 0.75)
-                        : _kDeep.withValues(alpha: 0.45),
-                  ),
-                ),
+                Text(student.course,
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: isMe
+                          ? Colors.white.withValues(alpha: 0.75)
+                          : _kDeep.withValues(alpha: 0.45),
+                    )),
               ],
             ),
           ),
-          // Score
+          // Points + progress
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                '${student.score} pts',
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: isMe ? Colors.white : _kPurple,
-                ),
-              ),
-              Text(
-                '${(student.courseProgress * 100).round()}% • ${student.assignmentsDone} done',
-                style: GoogleFonts.poppins(
-                  fontSize: 10,
-                  color: isMe
-                      ? Colors.white.withValues(alpha: 0.75)
-                      : _kDeep.withValues(alpha: 0.45),
-                ),
-              ),
+              Text('${student.totalPoints} pts',
+                  style: GoogleFonts.poppins(
+                      fontSize: 13, fontWeight: FontWeight.w700,
+                      color: isMe ? Colors.white : _kPurple)),
+              Text('${student.courseProgress}% • ${student.assignmentsDone} done',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    color: isMe
+                        ? Colors.white.withValues(alpha: 0.75)
+                        : _kDeep.withValues(alpha: 0.45),
+                  )),
             ],
           ),
         ],
@@ -616,17 +569,11 @@ class _AllStudentsTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
-        // Summary stats row
         _SummaryRow(students: students),
         const SizedBox(height: 16),
-        Text(
-          'Student Profiles',
-          style: GoogleFonts.poppins(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: _kDeep,
-          ),
-        ),
+        Text('Student Profiles',
+            style: GoogleFonts.poppins(
+                fontSize: 15, fontWeight: FontWeight.w700, color: _kDeep)),
         const SizedBox(height: 10),
         for (final s in students) _StudentCard(student: s),
       ],
@@ -641,41 +588,24 @@ class _SummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final avgProgress = students.fold(0.0, (s, e) => s + e.courseProgress) /
+    final avgProgress = students.fold(0, (s, e) => s + e.courseProgress) ~/
         students.length;
-    final avgAccuracy = students.fold(0.0, (s, e) => s + e.accuracy) /
-        students.length;
-    final totalAssignments =
-        students.fold(0, (s, e) => s + e.assignmentsDone);
+    final totalPoints = students.fold(0, (s, e) => s + e.totalPoints);
+    final totalAssignments = students.fold(0, (s, e) => s + e.assignmentsDone);
 
     return Row(
       children: [
-        Expanded(
-          child: _SummaryCard(
-            label: 'Avg Progress',
-            value: '${(avgProgress * 100).round()}%',
-            icon: Icons.show_chart_rounded,
-            color: _kPurple,
-          ),
-        ),
+        Expanded(child: _SummaryCard(
+            label: 'Avg Progress', value: '$avgProgress%',
+            icon: Icons.show_chart_rounded, color: _kPurple)),
         const SizedBox(width: 10),
-        Expanded(
-          child: _SummaryCard(
-            label: 'Avg Accuracy',
-            value: '${(avgAccuracy * 100).round()}%',
-            icon: Icons.gps_fixed_rounded,
-            color: const Color(0xFF00C9A7),
-          ),
-        ),
+        Expanded(child: _SummaryCard(
+            label: 'Total Points', value: '$totalPoints',
+            icon: Icons.star_rounded, color: const Color(0xFF00C9A7))),
         const SizedBox(width: 10),
-        Expanded(
-          child: _SummaryCard(
-            label: 'Assignments',
-            value: '$totalAssignments',
-            icon: Icons.task_alt_rounded,
-            color: const Color(0xFFE8637A),
-          ),
-        ),
+        Expanded(child: _SummaryCard(
+            label: 'Assignments', value: '$totalAssignments',
+            icon: Icons.task_alt_rounded, color: const Color(0xFFE8637A))),
       ],
     );
   }
@@ -683,12 +613,9 @@ class _SummaryRow extends StatelessWidget {
 
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.color,
+    required this.label, required this.value,
+    required this.icon, required this.color,
   });
-
   final String label;
   final String value;
   final IconData icon;
@@ -699,38 +626,26 @@ class _SummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: _kCardShadow,
-      ),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: _kCardShadow),
       child: Column(
         children: [
           Container(
-            width: 34,
-            height: 34,
+            width: 34, height: 34,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10)),
             child: Icon(icon, size: 18, color: color),
           ),
           const SizedBox(height: 8),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: _kDeep,
-            ),
-          ),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              fontSize: 10,
-              color: _kDeep.withValues(alpha: 0.5),
-            ),
-          ),
+          Text(value,
+              style: GoogleFonts.poppins(
+                  fontSize: 15, fontWeight: FontWeight.w700, color: _kDeep)),
+          Text(label,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                  fontSize: 10, color: _kDeep.withValues(alpha: 0.5))),
         ],
       ),
     );
@@ -748,122 +663,86 @@ class _StudentCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: _kCardShadow,
-      ),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: _kCardShadow),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row
           Row(
             children: [
               CircleAvatar(
                 radius: 22,
                 backgroundColor: student.avatarColor.withValues(alpha: 0.15),
-                child: Text(
-                  student.name[0],
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w700,
-                    color: student.avatarColor,
-                    fontSize: 17,
-                  ),
-                ),
+                child: Text(student.name[0],
+                    style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w700,
+                        color: student.avatarColor,
+                        fontSize: 17)),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      student.name,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: _kDeep,
-                      ),
-                    ),
-                    Text(
-                      student.course,
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: _kDeep.withValues(alpha: 0.45),
-                      ),
-                    ),
+                    Text(student.name,
+                        style: GoogleFonts.poppins(
+                            fontSize: 14, fontWeight: FontWeight.w700, color: _kDeep)),
+                    Text(student.course,
+                        style: GoogleFonts.poppins(
+                            fontSize: 12, color: _kDeep.withValues(alpha: 0.45))),
                   ],
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0EDFF),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${student.score} pts',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: _kPurple,
-                  ),
-                ),
+                    color: const Color(0xFFF0EDFF),
+                    borderRadius: BorderRadius.circular(20)),
+                child: Text('${student.totalPoints} pts',
+                    style: GoogleFonts.poppins(
+                        fontSize: 11, fontWeight: FontWeight.w700, color: _kPurple)),
               ),
             ],
           ),
           const SizedBox(height: 14),
-
-          // Course progress bar
           Row(
             children: [
-              Text(
-                'Course Progress',
-                style: GoogleFonts.poppins(
-                    fontSize: 12, color: _kDeep.withValues(alpha: 0.6)),
-              ),
+              Text('Course Progress',
+                  style: GoogleFonts.poppins(
+                      fontSize: 12, color: _kDeep.withValues(alpha: 0.6))),
               const Spacer(),
-              Text(
-                '${(student.courseProgress * 100).round()}%',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: _kPurple,
-                ),
-              ),
+              Text('${student.courseProgress}%',
+                  style: GoogleFonts.poppins(
+                      fontSize: 12, fontWeight: FontWeight.w600, color: _kPurple)),
             ],
           ),
           const SizedBox(height: 6),
           TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: student.courseProgress),
+            tween: Tween(begin: 0, end: student.courseProgress / 100.0),
             duration: const Duration(milliseconds: 700),
             curve: Curves.easeOutCubic,
             builder: (context, value, _) => ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: LinearProgressIndicator(
-                minHeight: 8,
-                value: value,
+                minHeight: 8, value: value,
                 backgroundColor: const Color(0xFFE4DEFF),
-                valueColor:
-                    const AlwaysStoppedAnimation<Color>(_kPurple),
+                valueColor: const AlwaysStoppedAnimation<Color>(_kPurple),
               ),
             ),
           ),
           const SizedBox(height: 12),
-
-          // Stats chips row
           Row(
             children: [
               _StatChip(
-                icon: Icons.task_alt_rounded,
-                label: '${student.assignmentsDone} Assignments',
-                color: const Color(0xFFE8637A),
-              ),
+                  icon: Icons.task_alt_rounded,
+                  label: '${student.assignmentsDone} Assignments',
+                  color: const Color(0xFFE8637A)),
               const SizedBox(width: 8),
               _StatChip(
-                icon: Icons.gps_fixed_rounded,
-                label: '${(student.accuracy * 100).round()}% Accuracy',
-                color: const Color(0xFF00C9A7),
-              ),
+                  icon: Icons.star_rounded,
+                  label: '${student.totalPoints} pts',
+                  color: _kPurple),
             ],
           ),
         ],
@@ -873,12 +752,7 @@ class _StudentCard extends StatelessWidget {
 }
 
 class _StatChip extends StatelessWidget {
-  const _StatChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
+  const _StatChip({required this.icon, required this.label, required this.color});
   final IconData icon;
   final String label;
   final Color color;
@@ -888,22 +762,16 @@ class _StatChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(20),
-      ),
+          color: color.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(20)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 13, color: color),
           const SizedBox(width: 5),
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
+          Text(label,
+              style: GoogleFonts.poppins(
+                  fontSize: 11, fontWeight: FontWeight.w600, color: color)),
         ],
       ),
     );
