@@ -108,4 +108,41 @@ class FirestoreService {
         .orderBy('createdAt', descending: true)
         .snapshots();
   }
+
+  // ── User document stream ──────────────────────────────────────────────────
+
+  /// Real-time stream of the current user's document from the users collection.
+  /// Returns empty map silently if rules deny access (e.g. before rules are deployed).
+  Stream<Map<String, dynamic>> getCurrentUserStream() {
+    final user = _auth.currentUser;
+    if (user == null) return const Stream.empty();
+    return _firestore
+        .collection('users')
+        .doc(user.uid)
+        .snapshots()
+        .map((doc) => doc.data() ?? {})
+        .handleError((_) => <String, dynamic>{}); // swallow permission-denied silently
+  }
+
+  /// Ensures the users/{uid} document exists with default fields.
+  /// Fully silent — never throws, never blocks login.
+  Future<void> ensureUserDocument() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+      final ref = _firestore.collection('users').doc(user.uid);
+      final doc = await ref.get();
+      if (!doc.exists) {
+        await ref.set({
+          'totalPoints': 0,
+          'progress': 0,
+          'completedLessons': {},
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (_) {
+      // Silently ignore — permission-denied until Firestore rules are deployed
+    }
+  }
 }

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../data/course_data.dart';
 import '../services/course_progress_service.dart';
+import '../services/firestore_service.dart';
 import 'assignments_screen.dart';
 import 'community_screen.dart';
 import 'course_detail_screen.dart';
@@ -38,6 +39,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
   late final Animation<double> _fadeAnimation;
 
   final _svc = CourseProgressService();
+  final _firestoreService = FirestoreService();
   int _selectedIndex = 0;
   int _notificationCount = 3;
   bool _cacheReady = false;
@@ -288,19 +290,33 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(child: _StatCard(item: _StatItem(
-                        label: 'Courses', value: '${allCourses.length}', icon: Icons.school_rounded))),
-                      const SizedBox(width: 10),
-                      Expanded(child: _StatCard(item: _StatItem(
-                        label: 'Completed', value: '$_completedCourses', icon: Icons.emoji_events_rounded))),
-                      const SizedBox(width: 10),
-                      Expanded(child: _StatCard(item: _StatItem(
-                        label: 'Progress', value: '${(_overallProgress * 100).round()}%', icon: Icons.show_chart_rounded))),
-                      const SizedBox(width: 10),
-                      Expanded(child: _StatCard(item: _stats[2])),
-                    ],
+                  StreamBuilder<Map<String, dynamic>>(
+                    stream: _firestoreService.getCurrentUserStream(),
+                    builder: (context, snapshot) {
+                      final userData = snapshot.data ?? {};
+                      final progress = (userData['progress'] as num?)?.toInt()
+                          ?? (_overallProgress * 100).round();
+                      final points = (userData['totalPoints'] as num?)?.toInt() ?? 0;
+                      return Row(
+                        children: [
+                          Expanded(child: _StatCard(item: _StatItem(
+                            label: 'Courses', value: '${allCourses.length}',
+                            icon: Icons.school_rounded))),
+                          const SizedBox(width: 10),
+                          Expanded(child: _StatCard(item: _StatItem(
+                            label: 'Completed', value: '$_completedCourses',
+                            icon: Icons.emoji_events_rounded))),
+                          const SizedBox(width: 10),
+                          Expanded(child: _StatCard(item: _StatItem(
+                            label: 'Progress', value: '$progress%',
+                            icon: Icons.show_chart_rounded))),
+                          const SizedBox(width: 10),
+                          Expanded(child: _StatCard(item: _StatItem(
+                            label: 'Points', value: '$points',
+                            icon: Icons.local_fire_department_rounded))),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
