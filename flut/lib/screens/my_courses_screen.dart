@@ -211,6 +211,7 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
   }
 
   void _openDetail(CourseInfo course) async {
+    _svc.setLastOpened(course.id);
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => CourseDetailScreen(
         course: course,
