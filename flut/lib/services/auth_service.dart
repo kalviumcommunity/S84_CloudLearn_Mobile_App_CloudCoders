@@ -47,10 +47,10 @@ class AuthService {
         await userCredential.user!.sendEmailVerification();
       }
       await _ensureUserProfile(userCredential.user);
-      await _firestoreService.ensureUserDocument();
+      // Non-blocking — a rules error here must not prevent sign-up
+      try { await _firestoreService.ensureUserDocument(); } catch (_) {}
       return userCredential.user;
     } on FirebaseAuthException catch (e) {
-      // Handle specific errors
       if (e.code == 'weak-password') {
         throw Exception('The password provided is too weak.');
       } else if (e.code == 'email-already-in-use') {
@@ -82,7 +82,8 @@ class AuthService {
       }
 
       await _ensureUserProfile(userCredential.user);
-      await _firestoreService.ensureUserDocument();
+      // Non-blocking — a rules error here must not prevent sign-in
+      try { await _firestoreService.ensureUserDocument(); } catch (_) {}
       return userCredential.user;
     } on FirebaseAuthException catch (e) {
       // Handle specific errors
