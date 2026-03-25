@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../data/course_data.dart';
+import '../services/course_progress_service.dart';
 import 'assignments_screen.dart';
 import 'community_screen.dart';
 import 'progress_analytics_screen.dart';
@@ -33,10 +35,11 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
-  late final Animation<double> _progressAnimation;
 
+  final _svc = CourseProgressService();
   int _selectedIndex = 0;
   int _notificationCount = 3;
+  bool _cacheReady = false;
 
   String get _userName {
     final user = FirebaseAuth.instance.currentUser;
@@ -49,8 +52,6 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
   }
 
   final List<_FeatureItem> _features = const [
-    _FeatureItem(
-      label: 'My Courses',
       icon: Icons.menu_book_rounded,
       color: Color(0xFF7C6CF6),
       bgColor: Color(0xFFF0EDFF),
@@ -76,10 +77,9 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
   ];
 
   final List<_StatItem> _stats = const [
-    _StatItem(label: 'Courses', value: '8', icon: Icons.school_rounded),
+    _StatItem(label: 'Courses', value: '4', icon: Icons.school_rounded),
     _StatItem(label: 'Pending', value: '3', icon: Icons.pending_actions_rounded),
-    _StatItem(label: 'Progress', value: '60%', icon: Icons.show_chart_rounded),
-    _StatItem(label: 'Streak', value: '12d', icon: Icons.local_fire_department_rounded),
+    _StatItem(label: 'Streak', value: '—', icon: Icons.local_fire_department_rounded),
   ];
 
   @override
@@ -93,10 +93,46 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
       parent: _fadeController,
       curve: Curves.easeOut,
     );
-    _progressAnimation = Tween<double>(begin: 0, end: 0.6).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
-    );
     _fadeController.forward();
+    _warmCache();
+  }
+
+  Future<void> _warmCache() async {
+    if (!ProgressCache.instance.isLoaded) {
+      await _svc.warmUp(allCourses.map((c) => c.id).toList());
+    }
+    if (mounted) setState(() => _cacheReady = true);
+  }
+
+  // Overall progress across all 4 courses
+  double get _overallProgress {
+    if (!_cacheReady) return 0;
+    final totalLessons = allCourses.fold(0, (s, c) => s + c.totalLessons);
+    final watched = allCourses.fold(0, (s, c) => s + _svc.getWatchedCountSync(c.id));
+    return totalLessons == 0 ? 0 : (watched / totalLessons).clamp(0.0, 1.0);
+  }
+
+  int get _completedCourses =>
+      _cacheReady ? allCourses.where((c) {
+        final t = c.totalLessons;
+        return t > 0 && _svc.getWatchedCountSync(c.id) >= t;
+      }).length : 0;
+
+  // Most-in-progress course for "Continue Learning"
+  CourseInfo? get _continueCourse {
+    if (!_cacheReady) return allCourses.first;
+    CourseInfo? best;
+    double bestPct = 0;
+    for (final c in allCourses) {
+      final t = c.totalLessons;
+      if (t == 0) continue;
+      final pct = _svc.getWatchedCountSync(c.id) / t;
+      if (pct > 0 && pct < 1.0 && pct > bestPct) {
+        bestPct = pct;
+        best = c;
+      }
+    }
+    return best ?? allCourses.first;
   }
 
   @override
@@ -119,7 +155,8 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
             .push(MaterialPageRoute(builder: (_) => const AssignmentsScreen()));
       case 'My Courses':
         Navigator.of(context)
-            .push(MaterialPageRoute(builder: (_) => const MyCoursesScreen()));
+            .push(MaterialPageRoute(builder: (_) => const MyCoursesScreen()))
+            .then((_) { if (mounted) setState(() {}); });
       case 'Progress':
         Navigator.of(context)
             .push(MaterialPageRoute(builder: (_) => const ProgressAnalyticsScreen()));
@@ -166,7 +203,12 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                   const SizedBox(height: 24),
 
                   // ── Continue Learning ────────────────────────────────
-                  _ContinueLearningCard(progressAnimation: _progressAnimation),
+                  _ContinueLearningCard(
+                    course: _continueCourse ?? allCourses.first,
+                    progress: _overallProgress,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const MyCoursesScreen())),
+                  ),
                   const SizedBox(height: 16),
 
                   // ── Daily Challenge ──────────────────────────────────
@@ -212,10 +254,16 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      for (int i = 0; i < _stats.length; i++) ...[
-                        Expanded(child: _StatCard(item: _stats[i])),
-                        if (i < _stats.length - 1) const SizedBox(width: 10),
-                      ],
+                      Expanded(child: _StatCard(item: _StatItem(
+                        label: 'Courses', value: '${allCourses.length}', icon: Icons.school_rounded))),
+                      const SizedBox(width: 10),
+                      Expanded(child: _StatCard(item: _StatItem(
+                        label: 'Completed', value: '$_completedCourses', icon: Icons.emoji_events_rounded))),
+                      const SizedBox(width: 10),
+                      Expanded(child: _StatCard(item: _StatItem(
+                        label: 'Progress', value: '${(_overallProgress * 100).round()}%', icon: Icons.show_chart_rounded))),
+                      const SizedBox(width: 10),
+                      Expanded(child: _StatCard(item: _stats[2])),
                     ],
                   ),
                 ],
@@ -232,7 +280,8 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
               setState(() => _selectedIndex = 0);
             case 1:
               Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const MyCoursesScreen()));
+                  MaterialPageRoute(builder: (_) => const MyCoursesScreen()))
+                  .then((_) { if (mounted) setState(() {}); });
             case 2:
               Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => const ProgressAnalyticsScreen()));
@@ -338,11 +387,18 @@ class _Header extends StatelessWidget {
 
 // ── Continue Learning Card ────────────────────────────────────────────────────
 class _ContinueLearningCard extends StatelessWidget {
-  final Animation<double> progressAnimation;
-  const _ContinueLearningCard({required this.progressAnimation});
+  final CourseInfo course;
+  final double progress;
+  final VoidCallback onTap;
+  const _ContinueLearningCard({
+    required this.course,
+    required this.progress,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final percent = (progress * 100).round();
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -356,86 +412,62 @@ class _ContinueLearningCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 44, height: 44,
                 decoration: BoxDecoration(
                   color: const Color(0xFFF0EDFF),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(Icons.cloud_done_rounded,
-                    color: _kPurple, size: 22),
+                child: const Icon(Icons.cloud_done_rounded, color: _kPurple, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Continue Learning',
-                      style: GoogleFonts.poppins(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: _kDeep,
-                      ),
-                    ),
-                    Text(
-                      'Cloud Computing Basics • Module 3',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: _kDeep.withValues(alpha: 0.5),
-                      ),
-                    ),
+                    Text('Continue Learning',
+                        style: GoogleFonts.poppins(
+                            fontSize: 15, fontWeight: FontWeight.w700, color: _kDeep)),
+                    Text(course.title,
+                        style: GoogleFonts.poppins(
+                            fontSize: 12, color: _kDeep.withValues(alpha: 0.5))),
                   ],
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF0EDFF),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(
-                  '60%',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: _kPurple,
-                  ),
-                ),
+                child: Text('$percent%',
+                    style: GoogleFonts.poppins(
+                        fontSize: 12, fontWeight: FontWeight.w700, color: _kPurple)),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          AnimatedBuilder(
-            animation: progressAnimation,
-            builder: (context, _) => ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: LinearProgressIndicator(
-                minHeight: 7,
-                value: progressAnimation.value,
-                backgroundColor: const Color(0xFFF0EDFF),
-                valueColor: const AlwaysStoppedAnimation<Color>(_kPurple),
-              ),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              minHeight: 7,
+              value: progress,
+              backgroundColor: const Color(0xFFF0EDFF),
+              valueColor: const AlwaysStoppedAnimation<Color>(_kPurple),
             ),
           ),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () {},
+              onPressed: onTap,
               icon: const Icon(Icons.play_arrow_rounded, size: 18),
-              label: Text(
-                'Resume Course',
-                style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w600, fontSize: 14),
-              ),
+              label: Text('Go to Courses',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14)),
               style: ElevatedButton.styleFrom(
                 elevation: 0,
                 backgroundColor: _kPurple,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 padding: const EdgeInsets.symmetric(vertical: 13),
               ),
             ),

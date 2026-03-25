@@ -30,45 +30,38 @@ class CourseDetailScreen extends StatefulWidget {
 }
 
 class _CourseDetailScreenState extends State<CourseDetailScreen> {
-  final _progressService = CourseProgressService();
-  Set<String> _watchedIds = {};
-  Map<String, DateTime> _lessonCompletedAt = {};
-  bool _loading = true;
+  final _svc = CourseProgressService();
+
+  // These are read directly from the singleton cache — always current.
+  Set<String> get _watchedIds => _svc.getWatchedSync(widget.course.id);
+  Map<String, DateTime> get _completedAt => _svc.getCompletedAtSync(widget.course.id);
+
+  int get _totalLessons => widget.course.totalLessons;
+  double get _progress =>
+      _totalLessons == 0 ? 0 : (_watchedIds.length / _totalLessons).clamp(0.0, 1.0);
+  bool get _isCompleted =>
+      _watchedIds.length >= _totalLessons && _totalLessons > 0;
 
   @override
   void initState() {
     super.initState();
-    _loadProgress();
+    // If cache wasn't warmed (e.g. deep-linked directly), sync this course
+    if (!ProgressCache.instance.isLoaded) {
+      _svc.syncCourse(widget.course.id).then((_) {
+        if (mounted) setState(() {});
+      });
+    }
   }
-
-  Future<void> _loadProgress() async {
-    final ids = await _progressService.getWatchedVideoIds(widget.course.id);
-    final times = await _progressService.getLessonCompletedAt(widget.course.id);
-    if (mounted) setState(() { _watchedIds = ids; _lessonCompletedAt = times; _loading = false; });
-  }
-
-  int get _totalLessons => widget.course.totalLessons;
-  double get _progress => _totalLessons == 0 ? 0 : (_watchedIds.length / _totalLessons).clamp(0.0, 1.0);
-  bool get _isCompleted => _watchedIds.length >= _totalLessons && _totalLessons > 0;
 
   void _toggleLesson(String id) {
-    final wasWatched = _watchedIds.contains(id);
-    setState(() {
-      if (wasWatched) {
-        _watchedIds.remove(id);
-        _lessonCompletedAt.remove(id);
-      } else {
-        _watchedIds.add(id);
-        _lessonCompletedAt[id] = DateTime.now(); // optimistic local time
-      }
-    });
-    _progressService.saveWatchedVideoIds(
+    // Update cache + fire Firestore persist — both synchronous from UI perspective
+    _svc.toggleLesson(
       courseId: widget.course.id,
       courseTitle: widget.course.title,
-      watchedIds: Set.from(_watchedIds),
+      lessonId: id,
       totalVideos: _totalLessons,
-      newlyCompletedId: wasWatched ? null : id, // record server timestamp only on completion
     );
+    setState(() {}); // rebuild from updated cache
   }
 
   void _openLesson(LessonContent lesson) {
@@ -77,7 +70,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
         lesson: lesson,
         accentColor: widget.color,
         isCompleted: _watchedIds.contains(lesson.id),
-        completedAt: _lessonCompletedAt[lesson.id],
+        completedAt: _completedAt[lesson.id],
         onMarkComplete: () => _toggleLesson(lesson.id),
       ),
     ));
@@ -85,13 +78,6 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return Scaffold(
-        backgroundColor: _kBg,
-        body: const Center(child: CircularProgressIndicator(color: _kPurple)),
-      );
-    }
-
     return Scaffold(
       backgroundColor: _kBg,
       body: CustomScrollView(
@@ -144,7 +130,6 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                // ── Progress card ─────────────────────────────────────
                 _ProgressCard(
                   progress: _progress,
                   watched: _watchedIds.length,
