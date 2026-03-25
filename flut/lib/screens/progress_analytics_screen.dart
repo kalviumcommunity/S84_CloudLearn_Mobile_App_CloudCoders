@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../data/course_data.dart';
 import '../services/course_progress_service.dart';
+import '../services/firestore_service.dart';
 
 const _kPurple = Color(0xFF6C5CE7);
 const _kDeep = Color(0xFF2D1A4D);
@@ -29,6 +30,7 @@ class ProgressAnalyticsScreen extends StatefulWidget {
 
 class _ProgressAnalyticsScreenState extends State<ProgressAnalyticsScreen> {
   final _svc = CourseProgressService();
+  final _firestoreService = FirestoreService();
   bool _loading = true;
 
   @override
@@ -165,31 +167,42 @@ class _ProgressAnalyticsScreenState extends State<ProgressAnalyticsScreen> {
               ),
             ),
             const SizedBox(height: 14),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 1.5,
-              children: [
-                _StatCard(
-                    title: 'Courses Completed',
-                    value: '$_completedCourses',
-                    icon: Icons.school_rounded),
-                _StatCard(
-                    title: 'Lessons Done',
-                    value: '$_totalLessonsCompleted',
-                    icon: Icons.task_alt_rounded),
-                const _StatCard(
-                    title: 'Total Study Time',
-                    value: '—',
-                    icon: Icons.timer_rounded),
-                const _StatCard(
-                    title: 'Current Streak',
-                    value: '—',
-                    icon: Icons.local_fire_department_rounded),
-              ],
+            StreamBuilder<Map<String, dynamic>>(
+              stream: _firestoreService.getCurrentUserStream(),
+              builder: (context, snapshot) {
+                final userData = snapshot.data ?? {};
+                final totalPoints = userData['totalPoints'] as int? ?? 0;
+                final completedLessons = userData['completedLessons'];
+                final lessonsFromFirestore = completedLessons is Map
+                    ? completedLessons.length
+                    : _totalLessonsCompleted;
+                return GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: 1.5,
+                  children: [
+                    _StatCard(
+                        title: 'Courses Completed',
+                        value: '$_completedCourses',
+                        icon: Icons.school_rounded),
+                    _StatCard(
+                        title: 'Lessons Done',
+                        value: '$lessonsFromFirestore',
+                        icon: Icons.task_alt_rounded),
+                    _StatCard(
+                        title: 'Total Points',
+                        value: '$totalPoints',
+                        icon: Icons.star_rounded),
+                    const _StatCard(
+                        title: 'Current Streak',
+                        value: '—',
+                        icon: Icons.local_fire_department_rounded),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 14),
             Container(

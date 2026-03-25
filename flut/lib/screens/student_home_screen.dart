@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../data/course_data.dart';
 import '../services/course_progress_service.dart';
+import '../services/firestore_service.dart';
 import 'assignments_screen.dart';
 import 'community_screen.dart';
 import 'course_detail_screen.dart';
@@ -38,6 +39,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
   late final Animation<double> _fadeAnimation;
 
   final _svc = CourseProgressService();
+  final _firestoreService = FirestoreService();
   int _selectedIndex = 0;
   int _notificationCount = 3;
   bool _cacheReady = false;
@@ -82,7 +84,6 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
   final List<_StatItem> _stats = const [
     _StatItem(label: 'Courses', value: '4', icon: Icons.school_rounded),
     _StatItem(label: 'Pending', value: '3', icon: Icons.pending_actions_rounded),
-    _StatItem(label: 'Streak', value: '—', icon: Icons.local_fire_department_rounded),
   ];
 
   @override
@@ -107,7 +108,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
     if (mounted) setState(() => _cacheReady = true);
   }
 
-  // Overall progress across all 4 courses
+  // Overall progress across all 4 courses — kept for continue-course fallback
   double get _overallProgress {
     if (!_cacheReady) return 0;
     final totalLessons = allCourses.fold(0, (s, c) => s + c.totalLessons);
@@ -240,10 +241,21 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                   const SizedBox(height: 24),
 
                   // ── Continue Learning ────────────────────────────────
-                  _ContinueLearningCard(
-                    course: _continueCourse,
-                    progress: _continueCourseProgress,
-                    onTap: _openContinueCourse,
+                  StreamBuilder<Map<String, dynamic>>(
+                    stream: _firestoreService.getCurrentUserStream(),
+                    builder: (context, snapshot) {
+                      final userData = snapshot.data ?? {};
+                      final firestoreProgress = (userData['progress'] as int? ?? 0) / 100.0;
+                      // Use Firestore progress if available, fall back to cache
+                      final displayProgress = firestoreProgress > 0
+                          ? firestoreProgress
+                          : _continueCourseProgress;
+                      return _ContinueLearningCard(
+                        course: _continueCourse,
+                        progress: displayProgress,
+                        onTap: _openContinueCourse,
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
 
@@ -288,19 +300,28 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(child: _StatCard(item: _StatItem(
-                        label: 'Courses', value: '${allCourses.length}', icon: Icons.school_rounded))),
-                      const SizedBox(width: 10),
-                      Expanded(child: _StatCard(item: _StatItem(
-                        label: 'Completed', value: '$_completedCourses', icon: Icons.emoji_events_rounded))),
-                      const SizedBox(width: 10),
-                      Expanded(child: _StatCard(item: _StatItem(
-                        label: 'Progress', value: '${(_overallProgress * 100).round()}%', icon: Icons.show_chart_rounded))),
-                      const SizedBox(width: 10),
-                      Expanded(child: _StatCard(item: _stats[2])),
-                    ],
+                  StreamBuilder<Map<String, dynamic>>(
+                    stream: _firestoreService.getCurrentUserStream(),
+                    builder: (context, snapshot) {
+                      final userData = snapshot.data ?? {};
+                      final progress = userData['progress'] as int? ?? 0;
+                      final totalPoints = userData['totalPoints'] as int? ?? 0;
+                      return Row(
+                        children: [
+                          Expanded(child: _StatCard(item: _StatItem(
+                            label: 'Courses', value: '${allCourses.length}', icon: Icons.school_rounded))),
+                          const SizedBox(width: 10),
+                          Expanded(child: _StatCard(item: _StatItem(
+                            label: 'Completed', value: '$_completedCourses', icon: Icons.emoji_events_rounded))),
+                          const SizedBox(width: 10),
+                          Expanded(child: _StatCard(item: _StatItem(
+                            label: 'Progress', value: '$progress%', icon: Icons.show_chart_rounded))),
+                          const SizedBox(width: 10),
+                          Expanded(child: _StatCard(item: _StatItem(
+                            label: 'Points', value: '$totalPoints', icon: Icons.local_fire_department_rounded))),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),

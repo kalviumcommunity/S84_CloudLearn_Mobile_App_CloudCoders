@@ -201,13 +201,18 @@ class CourseProgressService {
     } else {
       _cache.complete(courseId, lessonId);
     }
-    // Fire-and-forget persist
+    // Fire-and-forget persist to course_progress + users collections
     _persist(
       courseId: courseId,
       courseTitle: courseTitle,
       totalVideos: totalVideos,
       newlyCompletedId: wasComplete ? null : lessonId,
     );
+    // When unchecking, remove the lesson from users.completedLessons
+    if (wasComplete) {
+      final uid = _uid;
+      if (uid != null) _removeCompletedLesson(uid, lessonId);
+    }
   }
 
   Future<void> _persist({
@@ -220,6 +225,11 @@ class CourseProgressService {
       final uid = _uid;
       if (uid == null) return;
       final watched = _cache.watched(courseId);
+      final progressFraction = totalVideos == 0
+          ? 0.0
+          : (watched.length / totalVideos).clamp(0.0, 1.0);
+
+      // ── 1. Update course_progress document ──────────────────────────────
       final data = <String, dynamic>{
         'userId': uid,
         'courseId': courseId,
@@ -227,9 +237,7 @@ class CourseProgressService {
         'watchedVideoIds': watched.toList(),
         'watchedCount': watched.length,
         'totalVideos': totalVideos,
-        'progressFraction': totalVideos == 0
-            ? 0.0
-            : (watched.length / totalVideos).clamp(0.0, 1.0),
+        'progressFraction': progressFraction,
         'lastAccessedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       };
@@ -239,6 +247,40 @@ class CourseProgressService {
       await _col
           .doc(_docId(uid, courseId))
           .set(data, SetOptions(merge: true))
+          .timeout(const Duration(seconds: 10));
+
+      // ── 2. Update users document ─────────────────────────────────────────
+      // Points awarded per lesson completion (0 when unchecking a lesson)
+      const int pointsPerLesson = 10;
+      final int pointsDelta = newlyCompletedId != null ? pointsPerLesson : -pointsPerLesson;
+
+      final userRef = _db.collection('users').doc(uid);
+      final userUpdate = <String, dynamic>{
+        'progress': (progressFraction * 100).round(), // store as 0–100 integer
+        'totalPoints': FieldValue.increment(pointsDelta),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      // Add the completed lesson timestamp when marking complete.
+      // NOTE: completedLessons keys are stored flat (not per-course).
+      // If lesson IDs are not globally unique across courses, consider
+      // nesting under courses.{courseId}.completedLessons in the future.
+      if (newlyCompletedId != null) {
+        userUpdate['completedLessons.$newlyCompletedId'] = FieldValue.serverTimestamp();
+      }
+
+      await userRef
+          .set(userUpdate, SetOptions(merge: true))
+          .timeout(const Duration(seconds: 10));
+    } catch (_) {}
+  }
+
+  /// Remove a completed lesson from the users document when unchecked.
+  Future<void> _removeCompletedLesson(String uid, String lessonId) async {
+    try {
+      await _db
+          .collection('users')
+          .doc(uid)
+          .update({'completedLessons.$lessonId': FieldValue.delete()})
           .timeout(const Duration(seconds: 10));
     } catch (_) {}
   }
