@@ -52,6 +52,8 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
   }
 
   final List<_FeatureItem> _features = const [
+    _FeatureItem(
+      label: 'Courses',
       icon: Icons.menu_book_rounded,
       color: Color(0xFF7C6CF6),
       bgColor: Color(0xFFF0EDFF),
