@@ -201,7 +201,7 @@ class CourseProgressService {
     } else {
       _cache.complete(courseId, lessonId);
     }
-    // Fire-and-forget persist
+    // Fire-and-forget persist to course_progress + users collections
     _persist(
       courseId: courseId,
       courseTitle: courseTitle,

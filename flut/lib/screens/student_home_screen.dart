@@ -84,7 +84,6 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
   final List<_StatItem> _stats = const [
     _StatItem(label: 'Courses', value: '4', icon: Icons.school_rounded),
     _StatItem(label: 'Pending', value: '3', icon: Icons.pending_actions_rounded),
-    _StatItem(label: 'Streak', value: '—', icon: Icons.local_fire_department_rounded),
   ];
 
   @override
@@ -109,7 +108,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
     if (mounted) setState(() => _cacheReady = true);
   }
 
-  // Overall progress across all 4 courses
+  // Overall progress across all 4 courses — kept for continue-course fallback
   double get _overallProgress {
     if (!_cacheReady) return 0;
     final totalLessons = allCourses.fold(0, (s, c) => s + c.totalLessons);
@@ -242,10 +241,21 @@ class _StudentHomeScreenState extends State<StudentHomeScreen>
                   const SizedBox(height: 24),
 
                   // ── Continue Learning ────────────────────────────────
-                  _ContinueLearningCard(
-                    course: _continueCourse,
-                    progress: _continueCourseProgress,
-                    onTap: _openContinueCourse,
+                  StreamBuilder<Map<String, dynamic>>(
+                    stream: _firestoreService.getCurrentUserStream(),
+                    builder: (context, snapshot) {
+                      final userData = snapshot.data ?? {};
+                      final firestoreProgress = (userData['progress'] as int? ?? 0) / 100.0;
+                      // Use Firestore progress if available, fall back to cache
+                      final displayProgress = firestoreProgress > 0
+                          ? firestoreProgress
+                          : _continueCourseProgress;
+                      return _ContinueLearningCard(
+                        course: _continueCourse,
+                        progress: displayProgress,
+                        onTap: _openContinueCourse,
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
 
