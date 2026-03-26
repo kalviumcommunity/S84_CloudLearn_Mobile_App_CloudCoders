@@ -1,9 +1,13 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'storage_service.dart';
+
+// Points awarded per assignment submission (random 50–100, highest kept)
+int _randomMarks() => 50 + Random().nextInt(51); // 50–100
 
 class AssignmentItem {
   const AssignmentItem({
@@ -54,6 +58,7 @@ class AssignmentSubmission {
     required this.userId,
     required this.status,
     required this.submittedAt,
+    this.marks = 0,
     this.answerText,
     this.fileUrl,
     this.fileName,
@@ -63,6 +68,7 @@ class AssignmentSubmission {
   final String userId;
   final String status;
   final DateTime submittedAt;
+  final int marks; // 50–100, highest attempt kept
   final String? answerText;
   final String? fileUrl;
   final String? fileName;
@@ -73,6 +79,7 @@ class AssignmentSubmission {
       userId: map['userId'] as String,
       status: map['status'] as String? ?? 'Submitted',
       submittedAt: (map['submittedAt'] as Timestamp).toDate(),
+      marks: (map['marks'] as num?)?.toInt() ?? 0,
       answerText: map['answerText'] as String?,
       fileUrl: map['fileUrl'] as String?,
       fileName: map['fileName'] as String?,
@@ -196,8 +203,7 @@ class AssignmentService {
     if (file != null) {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final sourceName = originalFileName ?? file.path.split(RegExp(r'[\\/]')).last;
-      final safeName = sourceName
-          .replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+      final safeName = sourceName.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
       final storagePath = 'assignments/${assignment.id}/$userId-$timestamp-$safeName';
       fileUrl = await _storageService.uploadFile(file, storagePath);
       fileName = safeName;
@@ -206,6 +212,15 @@ class AssignmentService {
     final submittedAt = DateTime.now();
     final status = submittedAt.isAfter(assignment.dueDate) ? 'Late' : 'Submitted';
     final submissionDocId = '${assignment.id}_$userId';
+    final newMarks = _randomMarks();
+
+    // Check existing submission to keep highest marks
+    final existing = await _submissions.doc(submissionDocId).get();
+    final prevMarks = existing.exists
+        ? (existing.data()?['marks'] as num?)?.toInt() ?? 0
+        : 0;
+    final bestMarks = newMarks > prevMarks ? newMarks : prevMarks;
+    final isFirstSubmission = !existing.exists;
 
     await _submissions.doc(submissionDocId).set({
       'assignmentId': assignment.id,
@@ -214,18 +229,26 @@ class AssignmentService {
       'fileUrl': fileUrl ?? '',
       'fileName': fileName ?? '',
       'status': status,
+      'marks': bestMarks,        // always keep highest
       'submittedAt': Timestamp.fromDate(submittedAt),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
-    // Award 20 points per assignment submission to users document
+    // Update users document — points based on marks, only increment assignmentsDone once
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid != null) {
-        await _firestore.collection('users').doc(uid).set({
-          'totalPoints': FieldValue.increment(20),
+        final userUpdate = <String, dynamic>{
+          'totalPoints': FieldValue.increment(bestMarks),
           'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        };
+        if (isFirstSubmission) {
+          userUpdate['assignmentsDone'] = FieldValue.increment(1);
+        }
+        await _firestore
+            .collection('users')
+            .doc(uid)
+            .set(userUpdate, SetOptions(merge: true));
       }
     } catch (_) {}
   }

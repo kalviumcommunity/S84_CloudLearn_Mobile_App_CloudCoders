@@ -61,11 +61,13 @@ List<_Student> _buildLeaderboard({
 
   final int points   = (userData['totalPoints'] as num?)?.toInt() ?? 0;
   final int progress = (userData['progress']    as num?)?.toInt() ?? 0;
+  // prefer live Firestore count over one-time fetch
+  final int asgDone  = (userData['assignmentsDone'] as num?)?.toInt() ?? assignmentsDone;
 
   final me = _Student(
     name: name,
     course: profile?.course ?? 'Cloud Learning',
-    assignmentsDone: assignmentsDone,
+    assignmentsDone: asgDone,
     courseProgress: progress,
     totalPoints: points,
     avatarColor: _kPurple,

@@ -26,6 +26,7 @@ service cloud.firestore {
           'fileUrl',
           'fileName',
           'status',
+          'marks',
           'submittedAt',
           'updatedAt',
         ])
@@ -34,6 +35,7 @@ service cloud.firestore {
         && (!('answerText' in data) || (data.answerText is string && data.answerText.size() <= 10000))
         && (!('fileUrl' in data) || (data.fileUrl is string && data.fileUrl.size() <= 2000))
         && (!('fileName' in data) || (data.fileName is string && data.fileName.size() <= 255))
+        && (!('marks' in data) || (data.marks is int && data.marks >= 0 && data.marks <= 100))
         && data.status in ['Submitted', 'Late']
         && data.submittedAt is timestamp;
     }

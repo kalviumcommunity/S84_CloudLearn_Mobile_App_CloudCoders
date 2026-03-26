@@ -59,8 +59,7 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
     final answer = _answerController.text.trim();
     if (_selectedFile == null && answer.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Please upload a file or enter answer text.')),
+        const SnackBar(content: Text('Please upload a file or enter answer text.')),
       );
       return;
     }
@@ -74,8 +73,17 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
         originalFileName: _selectedFileName,
       );
       if (!mounted) return;
+      // Refresh submission to show new marks
+      setState(() {
+        _selectedFile = null;
+        _selectedFileName = null;
+      });
+      _answerController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Assignment submitted successfully.')),
+        const SnackBar(
+          content: Text('Assignment submitted! Check your marks below.'),
+          backgroundColor: Color(0xFF43A047),
+        ),
       );
     } catch (error) {
       if (!mounted) return;
@@ -279,13 +287,22 @@ class _AssignmentDetailBody extends StatelessWidget {
                             color: _kPurple, size: 18),
                       ),
                       const SizedBox(width: 10),
-                      Text(
-                        'Last Submission',
-                        style: GoogleFonts.poppins(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: _kDeep,
+                      Text('Last Submission',
+                          style: GoogleFonts.poppins(
+                              fontSize: 15, fontWeight: FontWeight.w700, color: _kDeep)),
+                      const Spacer(),
+                      // Marks badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                              colors: [Color(0xFF7C6CF6), Color(0xFF5A4FCF)]),
+                          borderRadius: BorderRadius.circular(20),
                         ),
+                        child: Text('${submission!.marks}/100',
+                            style: GoogleFonts.poppins(
+                                fontSize: 13, fontWeight: FontWeight.w700,
+                                color: Colors.white)),
                       ),
                     ],
                   ),
@@ -295,21 +312,16 @@ class _AssignmentDetailBody extends StatelessWidget {
                     style: GoogleFonts.poppins(
                         fontSize: 13, color: const Color(0xFF9E9E9E)),
                   ),
+                  const SizedBox(height: 4),
+                  Text('Best score kept — resubmit to try for higher marks',
+                      style: GoogleFonts.poppins(
+                          fontSize: 11, color: const Color(0xFF9E9E9E),
+                          fontStyle: FontStyle.italic)),
                   if ((submission!.fileName ?? '').isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Text(
-                      'File: ${submission!.fileName}',
-                      style: GoogleFonts.poppins(
-                          fontSize: 13, color: const Color(0xFF9E9E9E)),
-                    ),
-                  ],
-                  if ((submission!.answerText ?? '').trim().isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Text response included',
-                      style: GoogleFonts.poppins(
-                          fontSize: 13, color: const Color(0xFF9E9E9E)),
-                    ),
+                    Text('File: ${submission!.fileName}',
+                        style: GoogleFonts.poppins(
+                            fontSize: 13, color: const Color(0xFF9E9E9E))),
                   ],
                 ],
               ),
